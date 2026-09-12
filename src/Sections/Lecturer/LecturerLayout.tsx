@@ -1,5 +1,6 @@
-import { Outlet, redirect } from 'react-router-dom'
-import { auth } from '../../appwrite/Auth'
+import { Outlet, redirect } from 'react-router-dom';
+import { auth } from '../../appwrite/Auth';
+import LecturerNav from '../../Components/LecturerNav';
 
 export const Loader = async () => {
   const user = await auth.getExistingUser();
@@ -8,7 +9,6 @@ export const Loader = async () => {
     return redirect('/login');
   }
 
-  // If an admin or student hits this route, redirect them accordingly
   if (user.profile?.role === 'admin') {
     return redirect('/admin');
   }
@@ -17,16 +17,18 @@ export const Loader = async () => {
     return redirect('/student');
   }
 
-  return null;
+  return user;
 }
 
-const LecturerLayout = () => {
+export default function LecturerLayout() {
   return (
-    <div>
-      lecturer dashboard
-      <Outlet />
+    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-slate-50 via-indigo-50/20 to-slate-100 text-slate-900 font-['Poppins']">
+      <LecturerNav />
+      <main className="flex-1 overflow-y-auto p-6 md:p-10 pb-28 md:pb-10">
+        <div className="max-w-6xl mx-auto">
+          <Outlet />
+        </div>
+      </main>
     </div>
-  )
+  );
 }
-
-export default LecturerLayout

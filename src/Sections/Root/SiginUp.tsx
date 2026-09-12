@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../appwrite/Auth';
-import { User, Phone, Hash, Mail, Lock, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { User, Phone, Hash, Mail, Lock, ArrowRight, ShieldCheck, Zap, Building2, ChevronDown } from 'lucide-react';
 
 export default function Signup() {
   const [role, setRole] = useState<'student' | 'lecturer'>('student');
   const [formData, setFormData] = useState({
+    university: 'Mountain Top University (MTU)',
     name: '',
     phone: '',
     campusId: '',
@@ -17,11 +18,11 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -38,6 +39,7 @@ const handleSignup = async (e: React.FormEvent) => {
         pass: formData.password,
         phone: formData.phone,
         campusId: formData.campusId,
+        university: formData.university,
         role: role,
       });
       navigate('/admin');
@@ -111,6 +113,27 @@ const handleSignup = async (e: React.FormEvent) => {
           {error && <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs">{error}</div>}
 
           <form onSubmit={handleSignup} className="space-y-3.5">
+            {/* Soft University Combobox */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Institution</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                  <Building2 size={16} />
+                </span>
+                <select
+                  name="university"
+                  value={formData.university}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="Mountain Top University (MTU)">Mountain Top University (MTU)</option>
+                </select>
+                <span className="absolute inset-y-0 right-0 flex items-center pr-3.5 pointer-events-none text-slate-400">
+                  <ChevronDown size={16} />
+                </span>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Full Name</label>
               <div className="relative">

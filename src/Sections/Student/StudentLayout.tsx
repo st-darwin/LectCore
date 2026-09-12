@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { Outlet, redirect } from 'react-router-dom'
 import { auth } from '../../appwrite/Auth'
 
