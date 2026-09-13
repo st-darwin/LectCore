@@ -229,7 +229,7 @@ const StudentCourseBrowse = () => {
               <GraduationCap size={14} className="text-indigo-500" />
               <span>Course Catalog</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
               Browse & Register Courses
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 max-w-xl font-normal leading-relaxed">

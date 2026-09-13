@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Sparkles, Search, FileCode, FileSpreadsheet, Archive } from 'lucide-react';
+import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
 
@@ -230,11 +230,11 @@ const StudentCourseDetail = () => {
 
         <div className="relative z-10 space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50/90 backdrop-blur-md border border-indigo-100 text-[11px] font-bold text-indigo-700 shadow-2xs">
-            <Sparkles size={13} className="text-indigo-600" />
+            <GraduationCap size={13} className="text-indigo-600" />
             <span>{course.department} Department</span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
+          <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight text-slate-900 leading-tight">
             {course.courseTitle}
           </h1>
 
