@@ -1,6 +1,6 @@
-
-import { Outlet, redirect } from 'react-router-dom'
-import { auth } from '../../appwrite/Auth'
+import { Outlet, redirect } from 'react-router-dom';
+import { auth } from '../../appwrite/Auth';
+import StudentNav from '../../Components/StudentNav';
 
 export const Loader = async () => {
   const user = await auth.getExistingUser();
@@ -23,11 +23,13 @@ export const Loader = async () => {
 
 const StudentLayout = () => {
   return (
-    <div>
-      welcome student
-      <Outlet />
+    <div className="min-h-screen bg-slate-50/50 flex flex-col md:flex-row">
+      <StudentNav />
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+        <Outlet />
+      </main>
     </div>
-  )
+  );
 }
 
-export default StudentLayout
+export default StudentLayout;

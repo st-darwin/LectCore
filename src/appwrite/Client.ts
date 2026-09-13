@@ -10,7 +10,9 @@ export const appwriteConfig = {
   courseId : import.meta.env.VITE_APPWRTE_COURSES_COLLECTION_ID,
   courseMaterialsId : import.meta.env.VITE_APPWRITE_COURSE_MATERIALS_COLLECTION_ID,
   storageId : import.meta.env.VITE_APPWRITE_STORAGE_BUCKET_ID,
-  announcementsId : import.meta.env.VITE_APPWRITE_ANNOUNCEMENTS_COLLECTION_ID
+  announcementsId : import.meta.env.VITE_APPWRITE_ANNOUNCEMENTS_COLLECTION_ID,
+  enrollmentsId : import.meta.env.VITE_APPWRITE_ENROLLMENTS_COLLECTION_ID,
+  assignmentId: import.meta.env.VITE_APPWRITE_ASSIGNMENTS_COLLECTION_ID,
 
 
 }

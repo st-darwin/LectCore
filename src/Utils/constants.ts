@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, Users, Megaphone } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FileText, Megaphone , Users } from 'lucide-react';
 
 export const LecturerNavItems = [
   {
@@ -19,6 +19,29 @@ export const LecturerNavItems = [
   {
     label: 'Announcements',
     path: '/lecturer/announcements',
+    icon: Megaphone,
+  },
+];
+
+export const StudentNavItems = [
+  {
+    label: 'Dashboard',
+    path: '/student',
+    icon: LayoutDashboard,
+  },
+  {
+    label: 'Courses',
+    path: '/student/courses',
+    icon: BookOpen,
+  },
+  {
+    label: 'Assignments',
+    path: '/student/assignments',
+    icon: FileText,
+  },
+  {
+    label: 'Announcements',
+    path: '/student/announcements',
     icon: Megaphone,
   },
 ];

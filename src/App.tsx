@@ -12,6 +12,9 @@ import CourseDetail from "./Sections/Lecturer/CourseDetail";
 import MyStudents from "./Sections/Lecturer/MyStudents";
 import CourseEdit from "./Sections/Lecturer/CourseEdit";
 import Announcements , {Loader as AnnouncementLoader} from "./Sections/Lecturer/Announcements";
+import StudentDashboard from "./Sections/Student/StudentDashboard";
+import StudentCourseView from "./Sections/Student/StudentCourseView";
+import StudentCourseBrowse from "./Sections/Student/StudentCourseBrowse";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -42,6 +45,9 @@ const router = createBrowserRouter(
 
       {/* Student Layout & Nested Routes */}
       <Route path="/student" element={<StudentLayout />} loader={studentLoader}>
+         <Route index element={<StudentDashboard />} />
+         <Route path="courses" element={<StudentCourseView/>} />
+          <Route path="courses/browse" element={<StudentCourseBrowse/>} />
         {/* Once you build student pages, add them here like this: */}
         {/* <Route index element={<StudentDashboard />} /> */}
       </Route>
