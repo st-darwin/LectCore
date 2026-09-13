@@ -8,8 +8,10 @@ import LecturerDashboard, { Loader as DashbaordLoader } from "./Sections/Lecture
 
 import CreateCourse from "./Sections/Lecturer/CreateCourse";
 import CourseView from "./Sections/Lecturer/CourseView";
-import CourseDetail from "./Sections/Lecturer/COurseDetail";
+import CourseDetail from "./Sections/Lecturer/CourseDetail";
 import MyStudents from "./Sections/Lecturer/MyStudents";
+import CourseEdit from "./Sections/Lecturer/CourseEdit";
+import Announcements , {Loader as AnnouncementLoader} from "./Sections/Lecturer/Announcements";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -33,7 +35,9 @@ const router = createBrowserRouter(
         <Route path="courses" element={<CourseView />} />
         <Route path="course/create" element={<CreateCourse />} />
         <Route path="courses/:id" element={<CourseDetail />} />
+        <Route path="courses/edit/:id" element={<CourseEdit />} />
         <Route path="students" element={<MyStudents />} />
+        <Route path="announcements" element={<Announcements />} loader={AnnouncementLoader} />
       </Route>
 
       {/* Student Layout & Nested Routes */}
