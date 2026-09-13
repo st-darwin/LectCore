@@ -3,6 +3,7 @@ import { ClipboardList, Search, Loader2, BookOpen, Calendar, Award,  FileText } 
 import Header from '../../Components/Header';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
+import { useNavigate } from 'react-router-dom';
 
 
 interface Assignment {
@@ -27,6 +28,7 @@ const AssignmentView = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchAssignmentsData();
@@ -221,7 +223,10 @@ const AssignmentView = () => {
                     <Calendar size={12} className="text-indigo-500" />
                     <span>{formattedDate}</span>
                   </span>
-                  <button className="text-indigo-600 font-semibold hover:underline cursor-pointer">
+                  <button
+                    onClick={() => navigate(`/lecturer/submissions/${assignment.$id}`)}
+                    className="text-indigo-600 font-semibold hover:underline cursor-pointer"
+                  >
                     View Submissions
                   </button>
                 </div>

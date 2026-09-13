@@ -19,6 +19,10 @@ import StudentCourseBrowse from "./Sections/Student/StudentCourseBrowse";
 import StudentCourseDetail from "./Sections/Student/StudentCourseDetail";
 import StudentAnnouncement from "./Sections/Student/StudentAnnouncement";
 import CreateAssignment from "./Sections/Lecturer/CreateAssignment";
+import SubmissionsView from "./Sections/Lecturer/SubmissionView";
+import StudentAssignmentsView from "./Sections/Student/StudentAssignmentsView";
+import StudentAssignmentSubmit from "./Sections/Student/StudentAssignmentSubmit";
+
 
 
 const router = createBrowserRouter(
@@ -48,6 +52,8 @@ const router = createBrowserRouter(
         <Route path="announcements" element={<Announcements />} loader={AnnouncementLoader} />
         <Route path="assignments" element={<AssignmentView />} />
         <Route path="assignments/create" element={<CreateAssignment />} />
+        <Route path="submissions/:assignmentId" element={<SubmissionsView />} />
+
       </Route>
 
       {/* Student Layout & Nested Routes */}
@@ -57,6 +63,8 @@ const router = createBrowserRouter(
           <Route path="courses/browse" element={<StudentCourseBrowse/>} />
           <Route path="courses/:courseId" element={<StudentCourseDetail/>} />
           <Route path="announcements" element={<StudentAnnouncement/>} />
+          <Route path="assignments" element={<StudentAssignmentsView/>} />
+          <Route path="assignment/:assignmentId" element={<StudentAssignmentSubmit/>} />
 
         {/* Once you build student pages, add them here like this: */}
         {/* <Route index element={<StudentDashboard />} /> */}

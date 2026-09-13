@@ -318,7 +318,7 @@ const MyStudents = () => {
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="flex items-center gap-1 text-slate-400">
                       <IdCard size={12} className="text-indigo-500" />
-                      <span>Campus ID:</span>
+                      <span>Matric Number :</span>
                     </span>
                     <span className="font-mono font-medium text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200/50">
                       {student.campusId || 'N/A'}
