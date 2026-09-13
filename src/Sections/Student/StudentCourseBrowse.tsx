@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { CheckCircle2, Plus, Loader2, Search, Library, Trash2, GraduationCap, Filter, Building2, ChevronDown, User } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
@@ -28,14 +28,15 @@ const DEPARTMENTS = [
   'Economics',
   'Mass Communication',
   'Mechanical Engineering',
-  'Electrical/Electronics Engineering',
-  'Medicine & Surgery'
+  'Geophysics',
+
+    
+  
 ];
 
 const LEVELS = ['All Levels', '100', '200', '300', '400', '500'];
 
 const StudentCourseBrowse = () => {
-  const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollmentsMap, setEnrollmentsMap] = useState<Map<string, string>>(new Map()); // courseId -> enrollmentId
   const [lecturersMap, setLecturersMap] = useState<Map<string, string>>(new Map()); // lecturerId/userId -> Lecturer Name
@@ -84,14 +85,14 @@ const StudentCourseBrowse = () => {
       if (lecturerIdsSet.size > 0) {
         try {
           const idsArray = Array.from(lecturerIdsSet);
-          // Query users collection where 'userId' matches the lecturerIds
+        
           const usersRes = await databases.listDocuments(
             appwriteConfig.databaseId,
             usersCollectionId,
             [Query.equal('userId', idsArray)]
           );
 
-          usersRes.documents.forEach((uDoc: any) => {
+          usersRes.documents.forEach((uDoc) => {
             const name = uDoc.name || uDoc.fullName || `${uDoc.firstName || ''} ${uDoc.lastName || ''}`.trim();
             if (name) {
               if (uDoc.userId) newLecturersMap.set(uDoc.userId, name);
