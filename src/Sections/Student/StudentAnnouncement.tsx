@@ -4,7 +4,7 @@ import {
   Calendar, 
   BookOpen, 
   Loader2, 
-  Sparkles,
+  
   Layers,
   Clock,
   Pin,
@@ -166,7 +166,7 @@ const StudentAnnouncement = () => {
             <Layers size={13} className={selectedFilter === 'all' ? 'text-indigo-600' : 'text-slate-400'} />
             <span>All Updates ({announcements.length})</span>
           </button>
-          {enrolledCourseList.map((course: any) => (
+          {enrolledCourseList.map((course) => (
             <button
               key={course.id}
               onClick={() => setSelectedFilter(course.id)}

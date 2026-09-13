@@ -10,6 +10,7 @@ import CreateCourse from "./Sections/Lecturer/CreateCourse";
 import CourseView from "./Sections/Lecturer/CourseView";
 import CourseDetail from "./Sections/Lecturer/CourseDetail";
 import MyStudents from "./Sections/Lecturer/MyStudents";
+import AssignmentView from "./Sections/Lecturer/AssignmentView";
 import CourseEdit from "./Sections/Lecturer/CourseEdit";
 import Announcements , {Loader as AnnouncementLoader} from "./Sections/Lecturer/Announcements";
 import StudentDashboard from "./Sections/Student/StudentDashboard";
@@ -17,6 +18,8 @@ import StudentCourseView from "./Sections/Student/StudentCourseView";
 import StudentCourseBrowse from "./Sections/Student/StudentCourseBrowse";
 import StudentCourseDetail from "./Sections/Student/StudentCourseDetail";
 import StudentAnnouncement from "./Sections/Student/StudentAnnouncement";
+import CreateAssignment from "./Sections/Lecturer/CreateAssignment";
+
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -43,6 +46,8 @@ const router = createBrowserRouter(
         <Route path="courses/edit/:id" element={<CourseEdit />} />
         <Route path="students" element={<MyStudents />} />
         <Route path="announcements" element={<Announcements />} loader={AnnouncementLoader} />
+        <Route path="assignments" element={<AssignmentView />} />
+        <Route path="assignments/create" element={<CreateAssignment />} />
       </Route>
 
       {/* Student Layout & Nested Routes */}

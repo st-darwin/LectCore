@@ -21,6 +21,13 @@ export const LecturerNavItems = [
     path: '/lecturer/announcements',
     icon: Megaphone,
   },
+    {
+    label: 'Assignments',
+    path: '/lecturer/assignments',
+    icon: FileText,
+  },
+
+
 ];
 
 export const StudentNavItems = [
