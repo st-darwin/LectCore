@@ -22,9 +22,10 @@ export const Loader = async () => {
 
 export default function LecturerLayout() {
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-slate-50 via-indigo-50/20 to-slate-100 text-slate-900 font-['Poppins']">
+    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-slate-50 via-indigo-50/20 to-slate-100 text-slate-900 font-['Poppins'] overflow-x-hidden">
       <LecturerNav />
-      <main className="flex-1 overflow-y-auto p-6 md:p-10 pb-28 md:pb-10">
+      {/* pt-20 on mobile creates explicit clearance below the fixed floating header to prevent content overlap */}
+      <main className="flex-1 md:pl-80 overflow-y-auto pt-23 md:pt-6 p-4 sm:p-6 md:p-10 pb-10">
         <div className="max-w-6xl mx-auto">
           <Outlet />
         </div>

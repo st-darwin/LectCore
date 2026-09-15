@@ -1,3 +1,4 @@
+// StudentLayout.tsx
 import { Outlet, redirect } from 'react-router-dom';
 import { auth } from '../../appwrite/Auth';
 import StudentNav from '../../Components/StudentNav';
@@ -9,7 +10,6 @@ export const Loader = async () => {
     return redirect('/login');
   }
 
-  // Redirect admins or lecturers attempting to access the student view
   if (user.profile?.role === 'admin') {
     return redirect('/admin');
   }
@@ -21,15 +21,13 @@ export const Loader = async () => {
   return null;
 }
 
-const StudentLayout = () => {
+export default function StudentLayout() {
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-slate-50/50 flex flex-col md:flex-row overflow-x-hidden">
       <StudentNav />
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+      <main className="flex-1 md:pl-80 overflow-y-auto pt-20 md:pt-6 p-4 md:p-8">
         <Outlet />
       </main>
     </div>
   );
 }
-
-export default StudentLayout;

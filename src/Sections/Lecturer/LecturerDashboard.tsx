@@ -110,7 +110,7 @@ const LecturerDashboard = () => {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-2xl sm:text-3xl">👋</span>
-                <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+                <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight text-slate-900">
                   Welcome back, {lecturerName}
                 </h1>
               </div>
