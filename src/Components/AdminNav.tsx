@@ -28,7 +28,7 @@ const AdminNav: React.FC = () => {
   return (
     <>
       {/* Mobile Floating Header Bar */}
-      <div className="md:hidden fixed top-3 left-4 right-4 h-16 bg-white/90 backdrop-blur-xl border border-slate-200/80 z-40 px-4 flex items-center justify-between rounded-4xl shadow-xl shadow-slate-950/5">
+      <div className="md:hidden fixed top-3 left-4 right-4 h-16 bg-white/90 backdrop-blur-xl border border-slate-200/80 z-40 px-4 flex items-center justify-between rounded-2xl shadow-xl shadow-slate-950/5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
             <ShieldCheck className="w-5 h-5" />
@@ -56,13 +56,18 @@ const AdminNav: React.FC = () => {
         />
       )}
 
-      {/* Cool Soft Mobile Dropdown Panel */}
+      {/* Light-Themed Modern Soft Mobile Dropdown Sheet */}
       <div
-        className={`md:hidden fixed top-22 left-4 right-4 bg-white/95 backdrop-blur-2xl border border-slate-200/80 shadow-2xl shadow-slate-950/10 z-40 transition-all duration-300 ease-in-out p-3 space-y-1.5 rounded-3xl ${
-          isOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-3 pointer-events-none'
+        className={`md:hidden fixed top-22 left-4 right-4 bg-white/95 backdrop-blur-2xl border border-slate-200/80 shadow-2xl shadow-slate-950/10 z-40 transition-all duration-300 ease-in-out p-4 space-y-3 rounded-3xl ${
+          isOpen ? 'opacity-100 translate-y-0 pointer-events-auto scale-100' : 'opacity-0 -translate-y-4 pointer-events-none scale-95'
         }`}
       >
-        <div className="space-y-1 py-1">
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 px-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Navigation Menu</span>
+
+        </div>
+
+        <div className="grid grid-cols-1 gap-1.5">
           {AdminNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -71,14 +76,17 @@ const AdminNav: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setIsOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
+                className={`flex items-center justify-between px-4 py-3.5 rounded-2xl  text-sm transition-all duration-200 ${
                   active
                     ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-500/20'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    : 'bg-slate-50/80 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-slate-400'}`} />
+                  <span>{item.label}</span>
+                </div>
+               
               </Link>
             );
           })}
@@ -90,9 +98,9 @@ const AdminNav: React.FC = () => {
               setIsOpen(false);
               handleLogout();
             }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium text-sm text-rose-600 hover:bg-rose-50 transition-colors"
+            className="w-full flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-2xl font-medium text-sm bg-rose-50 text-rose-600 hover:bg-rose-100/80 transition-colors border border-rose-100"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
           </button>
         </div>
@@ -128,7 +136,6 @@ const AdminNav: React.FC = () => {
               >
                 <Icon className={`w-5 h-5 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} />
                 <span className="tracking-tight">{item.label}</span>
-              
               </Link>
             );
           })}
