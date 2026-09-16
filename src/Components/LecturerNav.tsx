@@ -38,7 +38,7 @@ export default function LecturerNav() {
   return (
     <>
       {/* Mobile Ultra-Clean Floating Fixed Navbar */}
-      <header className="md:hidden fixed top-3 inset-x-3 z-50 bg-white/85 backdrop-blur-xl border border-slate-200/60 rounded-2xl px-4 py-2.5 flex items-center justify-between shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+      <header className="md:hidden  fixed top-3 inset-x-3 z-50 bg-white/85 backdrop-blur-xl border border-slate-200/60 rounded-2xl px-4 py-2.5 flex items-center justify-between shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-semibold text-xs border border-indigo-100/60 shrink-0">
             LC

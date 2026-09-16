@@ -24,7 +24,7 @@ const Header: React.FC<HeaderProps> = ({ title, description, ctaText, ctaUrl, ic
   const isExternal = ctaUrl?.startsWith('http') || ctaUrl?.startsWith('mailto:');
 
   return (
-    <header className="relative md:mt-6 flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-8 mb-8">
+    <header className="relative md:mt-6 mt-3 flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-8 mb-8">
       {/* Soft minimal gradient anchor line with refined multi-stop fade */}
       <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-slate-200/80 via-indigo-400/40 to-transparent" />
       

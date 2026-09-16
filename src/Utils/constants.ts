@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, FileText, Megaphone , Users } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone } from 'lucide-react';
 
 export const LecturerNavItems = [
   {
@@ -21,13 +21,11 @@ export const LecturerNavItems = [
     path: '/lecturer/announcements',
     icon: Megaphone,
   },
-    {
+  {
     label: 'Assignments',
     path: '/lecturer/assignments',
     icon: FileText,
   },
-
-
 ];
 
 export const StudentNavItems = [
@@ -50,5 +48,38 @@ export const StudentNavItems = [
     label: 'Announcements',
     path: '/student/announcements',
     icon: Megaphone,
+  },
+];
+
+export const AdminNavItems = [
+  {
+    label: 'Dashboard',
+    path: '/admin',
+    icon: LayoutDashboard,
+  },
+  {
+    label: 'User Management',
+    path: '/admin/users',
+    icon: Users,
+  },
+  {
+    label: 'All Courses',
+    path: '/admin/courses',
+    icon: BookOpen,
+  },
+  {
+    label: 'Announcements',
+    path: '/admin/announcements',
+    icon: Megaphone,
+  },
+  {
+    label: 'System Logs',
+    path: '/admin/logs',
+    icon: ShieldAlert,
+  },
+  {
+    label: 'Settings',
+    path: '/admin/settings',
+    icon: Settings,
   },
 ];
