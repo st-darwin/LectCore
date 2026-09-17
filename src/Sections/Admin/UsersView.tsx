@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
@@ -45,12 +45,11 @@ const UsersView: React.FC = () => {
   
   // State to handle which row's action dropdown is open
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside using a class check
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (!(event.target as HTMLElement).closest('.dropdown-container')) {
         setOpenDropdownId(null);
       }
     };
@@ -331,7 +330,7 @@ const UsersView: React.FC = () => {
 
                     {/* Functional Edit & Delete Actions Dropdown */}
                     <td className="py-4 px-6 text-right relative">
-                      <div className="inline-block text-left" ref={dropdownRef}>
+                      <div className="inline-block text-left dropdown-container">
                         <button 
                           onClick={() => setOpenDropdownId(openDropdownId === user.$id ? null : user.$id)}
                           className="w-9 h-9 rounded-2xl bg-slate-100/80 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-center transition-all ml-auto shadow-xs cursor-pointer"
@@ -340,14 +339,21 @@ const UsersView: React.FC = () => {
                         </button>
 
                         {openDropdownId === user.$id && (
-                            <div className="absolute right-0 mt-2 w-36 rounded-2xl bg-white border border-slate-200/80 shadow-xl shadow-slate-950/10 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">                         
-                            <button  onClick={() => handleEditUser(user.$id)}
+                          <div className="absolute right-0 mt-2 w-36 rounded-2xl bg-white border border-slate-200/80 shadow-xl shadow-slate-950/10 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">         
+                            <button  
+                              onClick={() => {
+                                setOpenDropdownId(null);
+                                handleEditUser(user.$id);
+                              }}
                               className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors text-left"
                             >
                               <Edit3 className="w-3.5 h-3.5" /> Edit User
                             </button>
                             <button
-                              onClick={() => handleDeleteUser(user.$id)}
+                              onClick={() => {
+                                setOpenDropdownId(null);
+                                handleDeleteUser(user.$id);
+                              }}
                               className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors text-left"
                             >
                               <Trash2 className="w-3.5 h-3.5" /> Delete
