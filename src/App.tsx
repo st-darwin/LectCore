@@ -24,6 +24,7 @@ import StudentAssignmentsView from "./Sections/Student/StudentAssignmentsView";
 import StudentAssignmentSubmit from "./Sections/Student/StudentAssignmentSubmit";
 import AdminDashboard from "./Sections/Admin/AdminDashboard";
 import UsersView from "./Sections/Admin/UsersView";
+import CreateUser from "./Sections/Admin/CreateNewUser";
 
 import EditUser from "./Sections/Admin/EditUser";
 
@@ -43,6 +44,7 @@ const router = createBrowserRouter(
         <Route index element={<AdminDashboard />} />
         <Route path="users" element={<UsersView />} />
         <Route path="users/edit/:id" element={<EditUser />} />
+        <Route path="users/new" element={<CreateUser />} />
       </Route>
 
       {/* Lecturer Layout & Nested Routes */}
