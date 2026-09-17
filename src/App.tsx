@@ -22,7 +22,10 @@ import CreateAssignment from "./Sections/Lecturer/CreateAssignment";
 import SubmissionsView from "./Sections/Lecturer/SubmissionView";
 import StudentAssignmentsView from "./Sections/Student/StudentAssignmentsView";
 import StudentAssignmentSubmit from "./Sections/Student/StudentAssignmentSubmit";
+import AdminDashboard from "./Sections/Admin/AdminDashboard";
+import UsersView from "./Sections/Admin/UsersView";
 
+import EditUser from "./Sections/Admin/EditUser";
 
 
 const router = createBrowserRouter(
@@ -37,8 +40,9 @@ const router = createBrowserRouter(
 
       {/* Admin Layout & Nested Routes */}
       <Route path="/admin" element={<AdminLayout />} loader={adminLoader}>
-        {/* Once you build admin pages, add them here like this: */}
-        {/* <Route index element={<AdminDashboard />} /> */}
+        <Route index element={<AdminDashboard />} />
+        <Route path="users" element={<UsersView />} />
+        <Route path="users/edit/:id" element={<EditUser />} />
       </Route>
 
       {/* Lecturer Layout & Nested Routes */}

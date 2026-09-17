@@ -7,9 +7,10 @@ interface HeaderProps {
   ctaText?: string;
   ctaUrl?: string;
   icon?: React.ReactNode;
+  ctaIcon?: React.ReactNode; // 1. Added ctaIcon to the interface
 }
 
-const Header: React.FC<HeaderProps> = ({ title, description, ctaText, ctaUrl, icon }) => {
+const Header: React.FC<HeaderProps> = ({ title, description, ctaText, ctaUrl, icon, ctaIcon }) => {
   const navigate = useNavigate();
 
   const handleCtaClick = () => {
@@ -24,7 +25,7 @@ const Header: React.FC<HeaderProps> = ({ title, description, ctaText, ctaUrl, ic
   const isExternal = ctaUrl?.startsWith('http') || ctaUrl?.startsWith('mailto:');
 
   return (
-    <header className="relative md:mt-6 mt-3 flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-8 mb-8">
+    <header className="relative md:mt-6 mt-7 flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-8 mb-8">
       {/* Soft minimal gradient anchor line with refined multi-stop fade */}
       <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-slate-200/80 via-indigo-400/40 to-transparent" />
       
@@ -54,9 +55,15 @@ const Header: React.FC<HeaderProps> = ({ title, description, ctaText, ctaUrl, ic
           {isExternal ? (
             <button
               onClick={handleCtaClick}
-              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white border border-slate-200/80 px-6 py-3.5 shadow-xs hover:shadow-md hover:border-indigo-300 transition-all duration-300 active:scale-[0.97] cursor-pointer"
+              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-white border border-slate-200/80 px-6 py-3.5 shadow-xs hover:shadow-md hover:border-indigo-300 transition-all duration-300 active:scale-[0.97] cursor-pointer"
             >
               <div className="absolute inset-0 bg-indigo-50/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* 2. Render ctaIcon if provided */}
+              {ctaIcon && (
+                <span className="relative text-slate-700 group-hover:text-indigo-600 transition-colors flex items-center">
+                  {ctaIcon}
+                </span>
+              )}
               <span className="relative text-sm font-semibold tracking-tight text-slate-800 group-hover:text-indigo-600 transition-colors">
                 {ctaText}
               </span>
@@ -64,9 +71,15 @@ const Header: React.FC<HeaderProps> = ({ title, description, ctaText, ctaUrl, ic
           ) : (
             <Link 
               to={ctaUrl} 
-              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white border border-slate-200/80 px-6 py-3.5 shadow-xs hover:shadow-md hover:border-indigo-300 transition-all duration-300 active:scale-[0.97] text-center"
+              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-white border border-slate-200/80 px-6 py-3.5 shadow-xs hover:shadow-md hover:border-indigo-300 transition-all duration-300 active:scale-[0.97] text-center"
             >
               <div className="absolute inset-0 bg-indigo-50/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* 2. Render ctaIcon if provided */}
+              {ctaIcon && (
+                <span className="relative text-slate-700 group-hover:text-indigo-600 transition-colors flex items-center">
+                  {ctaIcon}
+                </span>
+              )}
               <span className="relative text-sm font-semibold tracking-tight text-slate-800 group-hover:text-indigo-600 transition-colors">
                 {ctaText}
               </span>

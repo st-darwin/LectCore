@@ -28,7 +28,7 @@ const AdminNav: React.FC = () => {
   return (
     <>
       {/* Mobile Floating Header Bar */}
-      <div className="md:hidden fixed top-3 left-4 right-4 h-16 bg-white/90 backdrop-blur-xl border border-slate-200/80 z-40 px-4 flex items-center justify-between rounded-2xl shadow-xl shadow-slate-950/5">
+      <div className="md:hidden fixed top-3 left-4 right-4 h-16 bg-white/90 backdrop-blur-xl border border-slate-200/80 z-40 px-4 flex items-center justify-between rounded-2xl shadow-sm shadow-slate-950/5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
             <ShieldCheck className="w-5 h-5" />
@@ -114,8 +114,8 @@ const AdminNav: React.FC = () => {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-bold text-slate-900 text-base tracking-tight leading-tight">LectCore</h1>
-            <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest mt-0.5">Admin Control</p>
+            <h1 className="font-semibold text-slate-900 text-base tracking-tight leading-tight">LectCore</h1>
+            <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-widest mt-0.5">Admin Control</p>
           </div>
         </div>
 
@@ -128,7 +128,7 @@ const AdminNav: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl font-medium text-sm transition-all duration-200 group relative ${
+                className={`flex items-center my-2 gap-3 px-4 py-3.5 rounded-2xl font-medium text-sm transition-all duration-200 group relative ${
                   active
                     ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-500/20'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
