@@ -13,7 +13,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { databases, appwriteConfig } from '../../appwrite/Client';
-import Header from '../../Components/Header';
+import AdminHeader from '../../Components/Header';
 
 const EditUser: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -113,7 +113,7 @@ const EditUser: React.FC = () => {
   return (
     <div className="space-y-6 pb-12 max-w-4xl mx-auto">
       {/* Header */}
-      <Header 
+      <AdminHeader 
         title="Edit User Profile"
         description="Modify platform account details, institutional ID, and access roles."
         icon={<UserPen className="w-6 h-6" />}

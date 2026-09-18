@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { ID } from 'appwrite';
 import { account, databases, appwriteConfig } from '../../appwrite/Client'; // Ensure 'account' is imported from your client file
-import Header from '../../Components/Header';
+import AdminHeader from '../../Components/Header';
 
 const CreateNewUser: React.FC = () => {
   const navigate = useNavigate();
@@ -82,7 +82,7 @@ const CreateNewUser: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12 max-w-4xl mx-auto">
-      <Header 
+      <AdminHeader 
         title="Add New User"
         description="Register a new platform account, generate auth credentials, and assign institutional roles."
         icon={<UserPlus className="w-6 h-6" />}

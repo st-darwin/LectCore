@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import { Query } from 'appwrite';
 import { databases, appwriteConfig } from '../../appwrite/Client';
-import Header from '../../Components/Header';
+
+import AdminHeader from '../../Components/AdminHeader';
 
 interface UserDocument {
   $id: string;
@@ -133,7 +134,7 @@ const UsersView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Reusable Soft Header Component */}
-      <Header 
+      <AdminHeader 
         title="User Management"
         description="Manage platform accounts, roles, institutional IDs, and system access."
         ctaText="Add New User"
