@@ -76,7 +76,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
           {isExternal ? (
             <button
               onClick={handleCtaClick}
-              className="group relative w-full lg:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 shadow-md shadow-indigo-600/20 hover:shadow-lg hover:shadow-indigo-600/30 transition-all duration-300 active:scale-[0.97] cursor-pointer"
+              className="group relative w-full lg:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 shadow-md shadow-indigo-600/20 hover:shadow-sm hover:shadow-indigo-600/30 transition-all duration-300 active:scale-[0.97] cursor-pointer"
             >
               {ctaIcon && (
                 <span className="text-indigo-200 group-hover:text-white transition-colors flex items-center">
