@@ -29,6 +29,7 @@ import AdminCourseView from "./Sections/Admin/AdminCourseView";
 import EditUser from "./Sections/Admin/EditUser";
 import ViewCourseMaterials from "./Sections/Admin/ViewCourseMaterials";
 import UploadNewMaterial , {Loader as UploadLoader} from "./Sections/Admin/UploadNewMaterial";
+import CreateNewCourse from "./Sections/Admin/CreateNewCourse";
 
 
 const router = createBrowserRouter(
@@ -50,6 +51,7 @@ const router = createBrowserRouter(
         <Route path="courses"  element={<AdminCourseView />} />
         <Route path="courses/:courseId/materials" element={<ViewCourseMaterials/>} />
         <Route  path="courses/:courseId/materials/new" element={<UploadNewMaterial/>} loader={UploadLoader}/>
+        <Route path="courses/new" element={<CreateNewCourse/>} />
       </Route>
 
       {/* Lecturer Layout & Nested Routes */}
