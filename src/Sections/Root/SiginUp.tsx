@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../appwrite/Auth';
 import { User, Phone, Hash, Mail, Lock, ArrowRight, ShieldCheck, Zap, Building2, ChevronDown } from 'lucide-react';
-
+import logo from "../../assets/icons/logo.png"
 export default function Signup() {
   const [role, setRole] = useState<'student' | 'lecturer'>('student');
   const [formData, setFormData] = useState({
@@ -58,7 +58,7 @@ export default function Signup() {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-500/30">
-              LC
+              <img src={logo}  className='rounded-xl' alt="" />
             </div>
             <span className="text-xl font-semibold tracking-tight text-white">LectCore</span>
           </div>
@@ -86,7 +86,9 @@ export default function Signup() {
       <div className="lg:col-span-7 flex items-center justify-center p-6 sm:p-12 bg-slate-50 text-slate-900">
         <div className="w-full max-w-md p-8 rounded-3xl bg-white border border-slate-200/80 shadow-2xl shadow-slate-200/50">
           <div className="lg:hidden flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">LC</div>
+            <div className="w-10 h-10 rounded-lg  text-white flex items-center justify-center font-bold text-sm">
+              <img src={logo} className='rounded-xl' alt="" />
+            </div>
             <span className="font-semibold text-slate-900">LectCore</span>
           </div>
 

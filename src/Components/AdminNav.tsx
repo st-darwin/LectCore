@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AdminNavItems } from "../Utils/constants";
 import { Menu, X, LogOut, ShieldCheck } from 'lucide-react';
 import { auth } from "../appwrite/Auth";
+import logo from "../assets/icons/logo.png"
 
 const AdminNav: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,8 +31,8 @@ const AdminNav: React.FC = () => {
       {/* Mobile Floating Header Bar */}
       <div className="md:hidden fixed top-3 left-4 right-4 h-16 bg-white/90 backdrop-blur-xl border border-slate-200/80 z-40 px-4 flex items-center justify-between rounded-2xl shadow-sm shadow-slate-950/5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-            <ShieldCheck className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-500/20">
+           <img src={logo} className='rounded-xl' alt="" />
           </div>
           <div>
             <span className="font-semibold text-slate-900 tracking-tight block text-sm leading-tight">LectCore</span>
@@ -111,7 +112,7 @@ const AdminNav: React.FC = () => {
         {/* Brand / Logo Area */}
         <div className="h-20 px-6 flex items-center gap-3.5 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/50">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
-            <ShieldCheck className="w-6 h-6" />
+            <img src={logo} className='rounded-xl ' alt="" />
           </div>
           <div>
             <h1 className="font-semibold text-slate-900 text-base tracking-tight leading-tight">LectCore</h1>

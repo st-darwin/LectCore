@@ -15,7 +15,8 @@ import {
   Trash2, 
   ChevronDown,
   TrendingUp,
-  CheckCircle2
+  CheckCircle2,
+  Eye
 } from 'lucide-react';
 import { Query } from 'appwrite';
 import { databases, appwriteConfig } from '../../appwrite/Client';
@@ -30,6 +31,7 @@ interface CourseDocument {
   department: string;
   level: string;
   $createdAt: string;
+  materialsCount?: number;
 }
 
 const AdminCourseView: React.FC = () => {
@@ -60,13 +62,30 @@ const AdminCourseView: React.FC = () => {
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      const response = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.courseId,
-        [Query.orderDesc('$createdAt')]
-      );
+      // Fetch courses and course materials concurrently
+      const [coursesResponse, materialsResponse] = await Promise.all([
+        databases.listDocuments(
+          appwriteConfig.databaseId,
+          appwriteConfig.courseId,
+          [Query.orderDesc('$createdAt')]
+        ),
+        databases.listDocuments(
+          appwriteConfig.databaseId,
+          appwriteConfig.courseMaterialsId,
+          [Query.limit(1000)]
+        )
+      ]);
 
-      const mappedCourses: CourseDocument[] = response.documents.map((doc: any) => ({
+      // Count materials per courseId
+      const materialCounts: Record<string, number> = {};
+      materialsResponse.documents.forEach((mat: any) => {
+        const cId = mat.courseId;
+        if (cId) {
+          materialCounts[cId] = (materialCounts[cId] || 0) + 1;
+        }
+      });
+
+      const mappedCourses: CourseDocument[] = coursesResponse.documents.map((doc: any) => ({
         $id: doc.$id,
         courseTitle: doc.courseTitle || '',
         courseCode: doc.courseCode || '',
@@ -75,6 +94,7 @@ const AdminCourseView: React.FC = () => {
         department: doc.department || 'General',
         level: doc.level || '100L',
         $createdAt: doc.$createdAt,
+        materialsCount: materialCounts[doc.$id] || 0,
       }));
 
       setCourses(mappedCourses);
@@ -108,6 +128,10 @@ const AdminCourseView: React.FC = () => {
     navigate(`/admin/courses/edit/${courseId}`);
   };
 
+  const handleViewMaterials = (courseId: string) => {
+    navigate(`/admin/courses/${courseId}/materials`);
+  };
+
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.courseTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           course.courseCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -116,15 +140,12 @@ const AdminCourseView: React.FC = () => {
     return matchesSearch && matchesDept;
   });
 
-  // Unique departments for filter options
   const departments = Array.from(new Set(courses.map(c => c.department))).filter(Boolean);
-
   const totalCourses = courses.length;
   const currentMonthCourses = courses.filter(c => new Date(c.$createdAt).getMonth() === new Date().getMonth()).length;
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Refined Admin Header Component */}
       <AdminHeader 
         title="Course Management"
         description="Monitor curriculum catalogs, departmental allocations, academic levels, and active modules."
@@ -135,9 +156,7 @@ const AdminCourseView: React.FC = () => {
         badgeText="Curriculum Center"
       />
 
-      {/* Enhanced Statistics Grid Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Courses */}
         <div className="relative overflow-hidden bg-white/90 backdrop-blur-xl border border-slate-200/80 p-5 rounded-3xl shadow-lg shadow-slate-950/5 flex items-center justify-between group hover:border-indigo-300 hover:shadow-xl transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative z-10">
@@ -152,7 +171,6 @@ const AdminCourseView: React.FC = () => {
           </div>
         </div>
 
-        {/* Added This Month */}
         <div className="relative overflow-hidden bg-white/90 backdrop-blur-xl border border-slate-200/80 p-5 rounded-3xl shadow-lg shadow-slate-950/5 flex items-center justify-between group hover:border-emerald-300 hover:shadow-xl transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative z-10">
@@ -167,7 +185,6 @@ const AdminCourseView: React.FC = () => {
           </div>
         </div>
 
-        {/* Active Departments */}
         <div className="relative overflow-hidden bg-white/90 backdrop-blur-xl border border-slate-200/80 p-5 rounded-3xl shadow-lg shadow-slate-950/5 flex items-center justify-between group hover:border-blue-300 hover:shadow-xl transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-50/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative z-10">
@@ -182,14 +199,13 @@ const AdminCourseView: React.FC = () => {
           </div>
         </div>
 
-        {/* System Health / Sync Status */}
         <div className="relative overflow-hidden bg-white/90 backdrop-blur-xl border border-slate-200/80 p-5 rounded-3xl shadow-lg shadow-slate-950/5 flex items-center justify-between group hover:border-purple-300 hover:shadow-xl transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative z-10">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Database Sync</p>
             <h3 className="text-2xl font-bold text-slate-900 mt-1">Live</h3>
             <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 mt-2 bg-purple-50/80 px-2.5 py-0.5 rounded-full border border-purple-100/50">
-              <CheckCircle2 className="w-3 h-3" /> Appwrite Connected
+              <CheckCircle2 className="w-3 h-3" /> Synced
             </span>
           </div>
           <div className="relative z-10 w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-inner border border-purple-100/60 group-hover:scale-105 transition-transform">
@@ -198,10 +214,8 @@ const AdminCourseView: React.FC = () => {
         </div>
       </div>
 
-      {/* Courses Table Card Container */}
       <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/80 rounded-3xl shadow-xl shadow-slate-950/5 overflow-hidden">
-        {/* Search & Filter Toolbar */}
-        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/40">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/40">
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
@@ -235,8 +249,7 @@ const AdminCourseView: React.FC = () => {
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="overflow-x-auto min-h-[300px]">
+        <div className="min-h-[300px] p-4 sm:p-0">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-3" />
@@ -248,69 +261,49 @@ const AdminCourseView: React.FC = () => {
               <p className="text-sm font-medium">No courses found matching your criteria.</p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/50">
-                  <th className="py-4 px-6">Course Title</th>
-                  <th className="py-4 px-6">Course Code</th>
-                  <th className="py-4 px-6">Department</th>
-                  <th className="py-4 px-6">Level</th>
-                  <th className="py-4 px-6">University</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
+            <>
+              {/* MOBILE VIEW: Card Layout (< md) */}
+              <div className="grid grid-cols-1 gap-3.5 md:hidden">
                 {filteredCourses.map((course) => (
-                  <tr key={course.$id} className="hover:bg-slate-50/60 transition-colors group">
-                    {/* Course Title */}
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-500/20 flex-shrink-0">
+                  <div 
+                    key={course.$id} 
+                    className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3 relative hover:border-indigo-200 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-500/20 flex-shrink-0">
                           {course.courseTitle ? course.courseTitle.charAt(0) : 'C'}
                         </div>
                         <div>
-                          <span className="font-semibold text-slate-900 block leading-tight">{course.courseTitle || 'Untitled Course'}</span>
-                          <span className="text-xs text-slate-400 block mt-0.5">Created: {course.$createdAt ? new Date(course.$createdAt).toLocaleDateString() : 'N/A'}</span>
+                          <h4 className="font-semibold text-slate-900 text-sm leading-snug">
+                            {course.courseTitle || 'Untitled Course'}
+                          </h4>
+                          <span className="text-[11px] text-slate-400 block">
+                            Created: {course.$createdAt ? new Date(course.$createdAt).toLocaleDateString() : 'N/A'}
+                          </span>
                         </div>
                       </div>
-                    </td>
 
-                    {/* Course Code */}
-                    <td className="py-4 px-6">
-                      <span className="font-semibold text-indigo-600 block text-xs bg-indigo-50/80 px-2.5 py-1 rounded-xl w-fit border border-indigo-100/50 shadow-xs">
-                        {course.courseCode || 'N/A'}
-                      </span>
-                    </td>
-
-                    {/* Department */}
-                    <td className="py-4 px-6 text-slate-700 text-xs font-medium">
-                      {course.department}
-                    </td>
-
-                    {/* Level */}
-                    <td className="py-4 px-6">
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200/80">
-                        {course.level}
-                      </span>
-                    </td>
-
-                    {/* University */}
-                    <td className="py-4 px-6 text-slate-500 text-xs font-medium">
-                      {course.university || 'N/A'}
-                    </td>
-
-                    {/* Actions Dropdown */}
-                    <td className="py-4 px-6 text-right relative">
-                      <div className="inline-block text-left dropdown-container">
+                      {/* Dropdown Action for Mobile */}
+                      <div className="relative dropdown-container flex-shrink-0">
                         <button 
                           onClick={() => setOpenDropdownId(openDropdownId === course.$id ? null : course.$id)}
-                          className="w-9 h-9 rounded-2xl bg-slate-100/80 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-center transition-all ml-auto shadow-xs cursor-pointer"
+                          className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-center transition-all cursor-pointer"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
 
                         {openDropdownId === course.$id && (
-                          <div className="absolute right-0 mt-2 w-36 rounded-2xl bg-white border border-slate-200/80 shadow-xl shadow-slate-950/10 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">         
+                          <div className="absolute right-0 mt-2 w-40 rounded-2xl bg-white border border-slate-200/80 shadow-xl shadow-slate-950/10 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">    
+                            <button  
+                              onClick={() => {
+                                setOpenDropdownId(null);
+                                handleViewMaterials(course.$id);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> View Materials
+                            </button>
                             <button  
                               onClick={() => {
                                 setOpenDropdownId(null);
@@ -332,16 +325,142 @@ const AdminCourseView: React.FC = () => {
                           </div>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Code</span>
+                        <span className="font-semibold text-indigo-600 mt-0.5 inline-block bg-indigo-50/80 px-2 py-0.5 rounded-lg border border-indigo-100/50">
+                          {course.courseCode || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Level</span>
+                        <span className="font-semibold text-slate-700 mt-0.5 inline-block bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/80">
+                          {course.level}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <div>
+                        <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider block">Department</span>
+                        <span className="font-medium text-slate-700">{course.department}</span>
+                      </div>
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-blue-50/80 text-blue-700 border border-blue-100 shadow-xs">
+                          <FileText className="w-3.5 h-3.5" />
+                          {course.materialsCount ?? 0} files
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+
+              {/* DESKTOP VIEW: Traditional Table Layout (md+) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/50">
+                      <th className="py-4 px-6">Course Title</th>
+                      <th className="py-4 px-6">Course Code</th>
+                      <th className="py-4 px-6">Department</th>
+                      <th className="py-4 px-6">Level</th>
+                      <th className="py-4 px-6">Materials Uploaded</th>
+                      <th className="py-4 px-6 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {filteredCourses.map((course) => (
+                      <tr key={course.$id} className="hover:bg-slate-50/60 transition-colors group">
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-500/20 flex-shrink-0">
+                              {course.courseTitle ? course.courseTitle.charAt(0) : 'C'}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-slate-900 block leading-tight">{course.courseTitle || 'Untitled Course'}</span>
+                              <span className="text-xs text-slate-400 block mt-0.5">Created: {course.$createdAt ? new Date(course.$createdAt).toLocaleDateString() : 'N/A'}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <span className="font-semibold text-indigo-600 block text-xs bg-indigo-50/80 px-2.5 py-1 rounded-xl w-fit border border-indigo-100/50 shadow-xs">
+                            {course.courseCode || 'N/A'}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-6 text-slate-700 text-xs font-medium">
+                          {course.department}
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200/80">
+                            {course.level}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-blue-50/80 text-blue-700 border border-blue-100 shadow-xs">
+                            <FileText className="w-3.5 h-3.5" />
+                            {course.materialsCount ?? 0} files
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-6 text-right relative">
+                          <div className="inline-block text-left dropdown-container">
+                            <button 
+                              onClick={() => setOpenDropdownId(openDropdownId === course.$id ? null : course.$id)}
+                              className="w-9 h-9 rounded-2xl bg-slate-100/80 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-center transition-all ml-auto shadow-xs cursor-pointer"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            {openDropdownId === course.$id && (
+                              <div className="absolute right-0 mt-2 w-40 rounded-2xl bg-white border border-slate-200/80 shadow-xl shadow-slate-950/10 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">    
+                                <button  
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    handleViewMaterials(course.$id);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> View Materials
+                                </button>
+                                <button  
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    handleEditCourse(course.$id);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors text-left"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" /> Edit Course
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    handleDeleteCourse(course.$id);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors text-left"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 
-        {/* Table Footer */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/40 flex items-center justify-between text-xs text-slate-500 font-medium">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium">
           <span>Showing <strong>{filteredCourses.length}</strong> of <strong>{totalCourses}</strong> total courses</span>
           <div className="flex items-center gap-2">
             <button className="px-3.5 py-2 rounded-xl bg-white border border-slate-200/80 font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-50" disabled>
