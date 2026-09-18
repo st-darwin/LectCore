@@ -11,7 +11,7 @@ import {
   Layers, 
   Loader2,
   Calendar,
-  Sparkles,
+  
   Activity,
   CheckCircle2,
   Database,
@@ -218,7 +218,7 @@ const AdminDashboard: React.FC = () => {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5 max-w-xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-indigo-200 text-xs font-medium">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-300" /> Appwrite Cloud Connected
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-300" /> Synced
             </div>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight">System Administration Hub</h2>
             <p className="text-xs sm:text-sm text-indigo-200/85 leading-relaxed">

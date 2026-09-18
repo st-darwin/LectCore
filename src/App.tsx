@@ -32,6 +32,7 @@ import UploadNewMaterial , {Loader as UploadLoader} from "./Sections/Admin/Uploa
 import CreateNewCourse from "./Sections/Admin/CreateNewCourse";
 import ViewAllMaterials from "./Sections/Admin/ViewAllMaterials";
 import ViewEnrollments from "./Sections/Admin/ViewEnrollments";
+import ViewAnnouncement from "./Sections/Admin/ViewAnnouncement";
 
 
 const router = createBrowserRouter(
@@ -56,6 +57,7 @@ const router = createBrowserRouter(
         <Route path="courses/new" element={<CreateNewCourse/>} />
         <Route  path="materials"  element={<ViewAllMaterials/>}/>
         <Route path="enrollments" element={<ViewEnrollments/>} />
+        <Route  path="announcements" element={<ViewAnnouncement/>}/> 
 
       </Route>
 
