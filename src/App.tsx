@@ -31,6 +31,7 @@ import ViewCourseMaterials from "./Sections/Admin/ViewCourseMaterials";
 import UploadNewMaterial , {Loader as UploadLoader} from "./Sections/Admin/UploadNewMaterial";
 import CreateNewCourse from "./Sections/Admin/CreateNewCourse";
 import ViewAllMaterials from "./Sections/Admin/ViewAllMaterials";
+import ViewEnrollments from "./Sections/Admin/ViewEnrollments";
 
 
 const router = createBrowserRouter(
@@ -54,6 +55,8 @@ const router = createBrowserRouter(
         <Route  path="courses/:courseId/materials/new" element={<UploadNewMaterial/>} loader={UploadLoader}/>
         <Route path="courses/new" element={<CreateNewCourse/>} />
         <Route  path="materials"  element={<ViewAllMaterials/>}/>
+        <Route path="enrollments" element={<ViewEnrollments/>} />
+
       </Route>
 
       {/* Lecturer Layout & Nested Routes */}
