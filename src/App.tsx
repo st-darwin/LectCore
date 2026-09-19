@@ -33,6 +33,9 @@ import CreateNewCourse from "./Sections/Admin/CreateNewCourse";
 import ViewAllMaterials from "./Sections/Admin/ViewAllMaterials";
 import ViewEnrollments from "./Sections/Admin/ViewEnrollments";
 import ViewAnnouncement from "./Sections/Admin/ViewAnnouncement";
+import ViewAssignments from "./Sections/Admin/ViewAssignments";
+import SysLog from "./Sections/Admin/SysLog";
+import Settings from "./Sections/Admin/Settings";
 
 
 const router = createBrowserRouter(
@@ -58,6 +61,9 @@ const router = createBrowserRouter(
         <Route  path="materials"  element={<ViewAllMaterials/>}/>
         <Route path="enrollments" element={<ViewEnrollments/>} />
         <Route  path="announcements" element={<ViewAnnouncement/>}/> 
+        <Route path="assignments" element={<ViewAssignments/>}  />
+        <Route path="logs" element={<SysLog/>} />
+        <Route path="settings" element={<Settings/>} />
 
       </Route>
 

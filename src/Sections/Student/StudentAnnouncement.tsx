@@ -4,20 +4,21 @@ import {
   Calendar, 
   BookOpen, 
   Loader2, 
-  
   Layers,
   Clock,
   Pin,
   CheckCheck,
   Info,
   Search,
-  BellRing
+  BellRing,
+  ShieldAlert
 } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
 
 interface Announcement {
   $id: string;
+  lecturerId: string;
   title: string;
   content: string;
   courseId: string;
@@ -43,6 +44,7 @@ const StudentAnnouncement = () => {
       const user = await account.get();
       if (!user) return;
 
+      // 1. Fetch student course enrollments
       const enrollmentsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.enrollmentsId,
@@ -51,34 +53,55 @@ const StudentAnnouncement = () => {
 
       const courseIds = enrollmentsRes.documents.map((doc: any) => doc.courseId);
 
-      if (courseIds.length === 0) {
-        setAnnouncements([]);
-        return;
-      }
+      // 2. Fetch course-specific announcements + global system announcements in parallel
+      const announcementQueries = courseIds.length > 0 
+        ? [Query.or([
+            Query.equal('courseId', courseIds),
+            Query.equal('courseId', 'all'),
+            Query.equal('lecturerId', 'admin-system')
+          ]), Query.orderDesc('$createdAt')]
+        : [Query.or([
+            Query.equal('courseId', 'all'),
+            Query.equal('lecturerId', 'admin-system')
+          ]), Query.orderDesc('$createdAt')];
 
       const announcementsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.announcementsId || 'announcements',
-        [Query.equal('courseId', courseIds), Query.orderDesc('$createdAt')]
+        announcementQueries
       );
 
-      const coursesRes = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.courseId,
-        [Query.equal('$id', courseIds)]
+      // Extract unique course IDs needed for lookup (excluding 'all' / system IDs)
+      const targetCourseIds = Array.from(
+        new Set(
+          announcementsRes.documents
+            .map((doc: any) => doc.courseId)
+            .filter((id: string) => id && id !== 'all')
+        )
       );
 
-      const courseMap = new Map();
-      coursesRes.documents.forEach((c: any) => {
-        courseMap.set(c.$id, { code: c.courseCode, title: c.courseTitle });
-      });
+      let courseMap = new Map();
+      if (targetCourseIds.length > 0) {
+        const coursesRes = await databases.listDocuments(
+          appwriteConfig.databaseId,
+          appwriteConfig.courseId,
+          [Query.equal('$id', targetCourseIds)]
+        );
 
+        coursesRes.documents.forEach((c: any) => {
+          courseMap.set(c.$id, { code: c.courseCode, title: c.courseTitle });
+        });
+      }
+
+      // Format announcements with resolved metadata
       const formattedAnnouncements = announcementsRes.documents.map((doc: any) => {
+        const isAdminBroadcast = doc.lecturerId === 'admin-system' || doc.courseId === 'all';
         const courseInfo = courseMap.get(doc.courseId) || {};
+
         return {
           ...doc,
-          courseCode: courseInfo.code || 'GEN',
-          courseTitle: courseInfo.title || 'General Course',
+          courseCode: isAdminBroadcast ? 'SYS' : (courseInfo.code || 'GEN'),
+          courseTitle: isAdminBroadcast ? 'System-Wide Broadcast' : (courseInfo.title || 'General Course'),
           priority: doc.priority || 'normal'
         };
       });
@@ -92,16 +115,30 @@ const StudentAnnouncement = () => {
   };
 
   const filteredAnnouncements = announcements.filter((item) => {
-    const matchesFilter = selectedFilter === 'all' || item.courseId === selectedFilter;
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.courseCode?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = 
+      selectedFilter === 'all' || 
+      item.courseId === selectedFilter || 
+      (selectedFilter === 'system' && (item.lecturerId === 'admin-system' || item.courseId === 'all'));
+
+    const matchesSearch = 
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.courseCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.courseTitle?.toLowerCase().includes(searchQuery.toLowerCase());
+
     return matchesFilter && matchesSearch;
   });
 
+  // Extract unique filter categories from fetched announcements
   const enrolledCourseList = Array.from(
-    new Set(announcements.map(a => JSON.stringify({ id: a.courseId, code: a.courseCode })))
+    new Set(
+      announcements
+        .filter(a => a.lecturerId !== 'admin-system' && a.courseId !== 'all')
+        .map(a => JSON.stringify({ id: a.courseId, code: a.courseCode }))
+    )
   ).map(str => JSON.parse(str));
+
+  const hasSystemBroadcasts = announcements.some(a => a.lecturerId === 'admin-system' || a.courseId === 'all');
 
   if (loading) {
     return (
@@ -118,8 +155,8 @@ const StudentAnnouncement = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-3 sm:px-0 text-slate-600">
-      
-      {/* Header Banner - Soft pastel gradient with glowing aura */}
+
+      {/* Header Banner */}
       <div className="relative overflow-hidden bg-gradient-to-r from-indigo-50/70 via-sky-50/40 to-teal-50/30 backdrop-blur-2xl p-7 sm:p-9 rounded-[2.5rem] border border-indigo-100/60 shadow-xs">
         <div className="absolute right-[-10%] top-[-30%] w-72 h-72 bg-gradient-to-br from-indigo-200/30 to-sky-200/20 rounded-full blur-3xl pointer-events-none" />
 
@@ -133,7 +170,7 @@ const StudentAnnouncement = () => {
               Course Announcements
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 max-w-lg leading-relaxed">
-              Stay synchronized with real-time updates, schedule adjustments, and notes posted directly by your lecturers.
+              Stay synchronized with real-time updates, schedule adjustments, and notes posted directly by your lecturers and administration.
             </p>
           </div>
 
@@ -153,7 +190,7 @@ const StudentAnnouncement = () => {
       </div>
 
       {/* Filter Tabs & Quick Indicators */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-xl p-3.5 rounded-2.5rem border border-slate-100/80 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-xl p-3.5 rounded-[2rem] border border-slate-100/80 shadow-2xs">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <button
             onClick={() => setSelectedFilter('all')}
@@ -166,6 +203,21 @@ const StudentAnnouncement = () => {
             <Layers size={13} className={selectedFilter === 'all' ? 'text-indigo-600' : 'text-slate-400'} />
             <span>All Updates ({announcements.length})</span>
           </button>
+
+          {hasSystemBroadcasts && (
+            <button
+              onClick={() => setSelectedFilter('system')}
+              className={`px-4 py-2.5 rounded-2xl text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 shadow-2xs ${
+                selectedFilter === 'system'
+                  ? 'bg-purple-100/80 text-purple-700 border border-purple-200/60 shadow-xs'
+                  : 'bg-slate-50/80 text-slate-500 border border-slate-100 hover:bg-purple-50/40 hover:text-purple-600'
+              }`}
+            >
+              <ShieldAlert size={13} className={selectedFilter === 'system' ? 'text-purple-600' : 'text-slate-400'} />
+              <span>Admin / System</span>
+            </button>
+          )}
+
           {enrolledCourseList.map((course) => (
             <button
               key={course.id}
@@ -184,63 +236,78 @@ const StudentAnnouncement = () => {
 
         <div className="flex items-center gap-2 text-xs text-slate-400 px-3 py-1 bg-indigo-50/40 rounded-xl border border-indigo-50">
           <Info size={13} className="text-indigo-400 shrink-0" />
-          <span>Showing enrolled modules</span>
+          <span>Showing available broadcasts</span>
         </div>
       </div>
 
       {/* Announcements List */}
       <div className="space-y-4">
         {filteredAnnouncements.length > 0 ? (
-          filteredAnnouncements.map((item) => (
-            <div 
-              key={item.$id}
-              className="p-6 sm:p-7 rounded-[2rem] bg-white/90 backdrop-blur-xl border border-slate-100/90 shadow-2xs space-y-4 hover:border-indigo-200/80 hover:shadow-md transition-all group relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-50/30 via-transparent to-transparent rounded-bl-full pointer-events-none" />
+          filteredAnnouncements.map((item) => {
+            const isAdminNotice = item.lecturerId === 'admin-system' || item.courseId === 'all';
+            
+            return (
+              <div 
+                key={item.$id}
+                className={`p-6 sm:p-7 rounded-[2rem] bg-white/90 backdrop-blur-xl border shadow-2xs space-y-4 hover:shadow-md transition-all group relative overflow-hidden ${
+                  isAdminNotice ? 'border-purple-200/80 bg-gradient-to-br from-purple-50/20 via-white to-white' : 'border-slate-100/90 hover:border-indigo-200/80'
+                }`}
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-50/30 via-transparent to-transparent rounded-bl-full pointer-events-none" />
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100/80">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="px-3 py-1 rounded-xl bg-indigo-50/80 border border-indigo-100/80 text-xs text-indigo-600 flex items-center gap-1.5 shadow-2xs">
-                    <BookOpen size={12} className="text-indigo-500" />
-                    {item.courseCode}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100/80">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {isAdminNotice ? (
+                      <span className="px-3 py-1 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-700 flex items-center gap-1.5 shadow-2xs font-semibold">
+                        <ShieldAlert size={12} className="text-purple-600" />
+                        Admin Notice
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-xl bg-indigo-50/80 border border-indigo-100/80 text-xs text-indigo-600 flex items-center gap-1.5 shadow-2xs">
+                        <BookOpen size={12} className="text-indigo-500" />
+                        {item.courseCode}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400">{item.courseTitle}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <div className="flex items-center gap-1.5 bg-slate-50/80 px-3 py-1 rounded-xl border border-slate-100 shadow-2xs">
+                      <Calendar size={13} className="text-slate-400" />
+                      <span>{new Date(item.$createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-slate-50/80 px-3 py-1 rounded-xl border border-slate-100 shadow-2xs">
+                      <Clock size={13} className="text-slate-400" />
+                      <span>{new Date(item.$createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <h2 className="text-base sm:text-lg text-slate-800 group-hover:text-indigo-600 transition-colors leading-snug">
+                    {item.title}
+                  </h2>
+
+                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed whitespace-pre-wrap bg-gradient-to-br from-slate-50/70 to-indigo-50/20 p-5 rounded-2xl border border-slate-100/80">
+                    {item.content}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+                  <span className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50/80 px-2.5 py-1 rounded-lg border border-emerald-100/60 shadow-2xs">
+                    <CheckCheck size={13} />
+                    Verified Notice
                   </span>
-                  <span className="text-xs text-slate-400">{item.courseTitle}</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="flex items-center gap-1.5 bg-slate-50/80 px-3 py-1 rounded-xl border border-slate-100 shadow-2xs">
-                    <Calendar size={13} className="text-slate-400" />
-                    <span>{new Date(item.$createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-slate-50/80 px-3 py-1 rounded-xl border border-slate-100 shadow-2xs">
-                    <Clock size={13} className="text-slate-400" />
-                    <span>{new Date(item.$createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
+                  <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-2xs ${
+                    isAdminNotice ? 'text-purple-600 bg-purple-50/60 border-purple-100' : 'text-indigo-500 bg-indigo-50/60 border-indigo-100/60'
+                  }`}>
+                    <Pin size={12} />
+                    {isAdminNotice ? 'System Broadcast' : 'Official Announcement'}
+                  </span>
                 </div>
               </div>
-
-              <div className="space-y-2.5">
-                <h2 className="text-base sm:text-lg text-slate-800 group-hover:text-indigo-600 transition-colors leading-snug">
-                  {item.title}
-                </h2>
-
-                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed whitespace-pre-wrap bg-gradient-to-br from-slate-50/70 to-indigo-50/20 p-5 rounded-2xl border border-slate-100/80">
-                  {item.content}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
-                <span className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50/80 px-2.5 py-1 rounded-lg border border-emerald-100/60 shadow-2xs">
-                  <CheckCheck size={13} />
-                  Verified Notice
-                </span>
-                <span className="flex items-center gap-1.5 text-indigo-500 bg-indigo-50/60 px-2.5 py-1 rounded-lg border border-indigo-100/60 shadow-2xs">
-                  <Pin size={12} />
-                  Official Broadcast
-                </span>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-center py-20 bg-white/90 backdrop-blur-xl rounded-[2.5rem] border border-slate-100 space-y-3.5 shadow-2xs">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50/80 text-indigo-500 flex items-center justify-center mx-auto border border-indigo-100 shadow-2xs">
@@ -248,7 +315,7 @@ const StudentAnnouncement = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs text-slate-700">No Announcements Found</p>
-              <p className="text-[11px] text-slate-400">There are currently no instructor updates matching your criteria.</p>
+              <p className="text-[11px] text-slate-400">There are currently no instructor updates or system notices matching your criteria.</p>
             </div>
           </div>
         )}
