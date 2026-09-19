@@ -42,25 +42,43 @@ const StudentAssignmentsView = () => {
       const user = await account.get();
       if (!user) return;
 
-      // 1. Fetch courses to map courseId to actual course codes
+      // 1. Fetch student's course enrollments first
+      const enrollmentsRes = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.enrollmentsId || 'enrollments',
+        [Query.equal('studentId', user.$id)]
+      );
+
+      const enrolledCourseIds = enrollmentsRes.documents.map((doc: any) => doc.courseId);
+
+      if (enrolledCourseIds.length === 0) {
+        setAssignments([]);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fetch courses to map courseId to actual course codes
       const coursesRes = await databases.listDocuments(
         appwriteConfig.databaseId,
-        appwriteConfig.coursesId || 'courses'
+        appwriteConfig.courseId || 'courses',
+        [Query.equal('$id', enrolledCourseIds)]
       );
+
       const map: Record<string, string> = {};
       coursesRes.documents.forEach((doc: any) => {
         map[doc.$id] = doc.code || doc.courseCode || doc.title || 'Course';
       });
       setCoursesMap(map);
 
-      // 2. Fetch all assignments
+      // 3. Fetch assignments restricted ONLY to enrolled courses
       const assignmentsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
-        appwriteConfig.assignmentId || 'assignments'
+        appwriteConfig.assignmentId || 'assignments',
+        [Query.equal('courseId', enrolledCourseIds)]
       );
       setAssignments(assignmentsRes.documents as unknown as Assignment[]);
 
-      // 3. Fetch student's submissions
+      // 4. Fetch student's submissions
       const submissionsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.submissionsId || 'submissions',
@@ -249,7 +267,7 @@ const StudentAssignmentsView = () => {
         <div className="text-center py-16 rounded-[2rem] bg-indigo-50/30 border border-dashed border-indigo-200/80 space-y-2">
           <FileText size={24} className="mx-auto text-indigo-400 mb-1" />
           <p className="text-xs font-semibold text-slate-800">No Assignments Found</p>
-          <p className="text-[11px] text-slate-500 max-w-xs mx-auto">No assignments match your current filter criteria.</p>
+          <p className="text-[11px] text-slate-500 max-w-xs mx-auto">No assignments match your enrolled courses or current filter criteria.</p>
         </div>
       )}
     </div>
