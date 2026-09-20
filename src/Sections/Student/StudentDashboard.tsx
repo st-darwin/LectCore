@@ -131,7 +131,7 @@ const StudentDashboard = () => {
         try {
           const assignmentsRes = await databases.listDocuments(
             appwriteConfig.databaseId,
-            appwriteConfig.assignmentsId || 'assignments',
+            appwriteConfig.assignmentId || 'assignments',
             [Query.equal('courseId', courseIds), Query.orderDesc('$createdAt'), Query.limit(5)]
           );
           setAssignments(assignmentsRes.documents as unknown as Assignment[]);

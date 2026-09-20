@@ -18,7 +18,7 @@ export const appwriteConfig = {
 
 
 }
-const client = new Client()
+export const client = new Client()
   .setEndpoint(appwriteConfig.endPoint)
   .setProject(appwriteConfig.projectId);
 
