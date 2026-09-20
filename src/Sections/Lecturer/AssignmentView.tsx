@@ -46,7 +46,7 @@ const AssignmentView = () => {
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
-
+   
   const fetchAssignmentsData = async () => {
     try {
       setLoading(true);
