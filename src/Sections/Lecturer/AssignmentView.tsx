@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, Search, Loader2, BookOpen, Calendar, Award,  FileText } from 'lucide-react';
+import { ClipboardList, Search, Loader2, BookOpen, Calendar, Award, FileText, MoreVertical, Trash2, X } from 'lucide-react';
 import Header from '../../Components/Header';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
 import { useNavigate } from 'react-router-dom';
-
 
 interface Assignment {
   $id: string;
@@ -28,10 +27,24 @@ const AssignmentView = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
+  
+  // Action Menu Dropdown state & Feedback states
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [error, setError] = useState<string>('');
+
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchAssignmentsData();
+  }, []);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = () => setActiveMenuId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
   const fetchAssignmentsData = async () => {
@@ -61,15 +74,60 @@ const AssignmentView = () => {
       // 2. Fetch all assignments for these courses using courseId filter
       const assignmentsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
-        appwriteConfig.assignmentId || 'assignments', // Fallback collection string if needed
+        appwriteConfig.assignmentId || 'assignments',
         [Query.equal('courseId', courseIds)]
       );
 
       setAssignments(assignmentsRes.documents as unknown as Assignment[]);
     } catch (err) {
       console.error("Failed to fetch assignments:", err);
+      setError("Failed to load assignments from database.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveMenuId(null);
+    if (!window.confirm('Are you sure you want to delete this assignment? All associated student submissions will also be deleted.')) return;
+
+    try {
+      setDeletingId(id);
+
+      // 1. Fetch all submissions linked to this assignment
+      const submissionsRes = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.submissionsId || 'submissions',
+        [Query.equal('assignmentId', id)]
+      );
+
+      // 2. Delete all matching submissions in parallel
+      const deletionPromises = submissionsRes.documents.map((sub: any) =>
+        databases.deleteDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.submissionsId || 'submissions',
+          sub.$id
+        )
+      );
+      await Promise.all(deletionPromises);
+
+      // 3. Delete the assignment document itself
+      await databases.deleteDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.assignmentId || 'assignments',
+        id
+      );
+
+      setAssignments((prev) => prev.filter((item) => item.$id !== id));
+      setSuccessMessage('Assignment and associated submissions deleted successfully.');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err: any) {
+      console.error('Error deleting assignment and submissions:', err);
+      setError(err.message || 'Failed to delete assignment and submissions.');
+      setTimeout(() => setError(''), 4000);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -102,6 +160,20 @@ const AssignmentView = () => {
         ctaUrl="/lecturer/assignments/create"
         icon={<ClipboardList size={20} />}
       />
+
+      {/* Feedback Alerts */}
+      {successMessage && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800 flex items-center justify-between shadow-sm">
+          <span>{successMessage}</span>
+          <button onClick={() => setSuccessMessage('')}><X size={14} /></button>
+        </div>
+      )}
+      {error && (
+        <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs font-medium text-red-800 flex items-center justify-between shadow-sm">
+          <span>{error}</span>
+          <button onClick={() => setError('')}><X size={14} /></button>
+        </div>
+      )}
 
       {/* Filter Tabs Section */}
       <div className="space-y-4 bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-slate-200/70 shadow-xs">
@@ -195,21 +267,53 @@ const AssignmentView = () => {
             const formattedDate = assignment.dueDate 
               ? new Date(assignment.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
               : 'No due date';
+            const isDeleting = deletingId === assignment.$id;
 
             return (
               <div
                 key={assignment.$id}
-                className="p-5 rounded-2xl bg-white/75 backdrop-blur-xl border border-slate-200/60 shadow-xs flex flex-col justify-between gap-4 hover:border-indigo-200 transition-all"
+                className="p-5 rounded-2xl bg-white/75 backdrop-blur-xl border border-slate-200/60 shadow-xs flex flex-col justify-between gap-4 hover:border-indigo-200 transition-all relative"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100/60 text-[11px] font-bold tracking-wide">
-                      {course ? course.courseCode : 'Course'}
-                    </span>
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100/60">
-                      <Award size={12} />
-                      <span>{assignment.totalMarks} Marks</span>
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100/60 text-[11px] font-bold tracking-wide">
+                        {course ? course.courseCode : 'Course'}
+                      </span>
+                      <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100/60">
+                        <Award size={12} />
+                        <span>{assignment.totalMarks} Marks</span>
+                      </span>
+                    </div>
+
+                    {/* 3-Dots Action Menu */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(activeMenuId === assignment.$id ? null : assignment.$id);
+                        }}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+
+                      {activeMenuId === assignment.$id && (
+                        <div 
+                          className="absolute right-0 mt-1 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-20 text-xs animate-in fade-in zoom-in-95 duration-150"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={(e) => handleDelete(assignment.$id, e)}
+                            disabled={isDeleting}
+                            className="w-full px-4 py-2 text-left flex items-center gap-2 text-red-600 hover:bg-red-50 transition-colors cursor-pointer font-medium disabled:opacity-50"
+                          >
+                            {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                            <span>Delete Assignment</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-1">

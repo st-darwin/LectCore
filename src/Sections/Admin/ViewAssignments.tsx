@@ -91,7 +91,6 @@ const ViewAssignments: React.FC = () => {
     if (uniqueIds.length === 0) return {};
 
     try {
-      // Query documents where the custom 'userId' field matches the IDs in our list
       const usersRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.userCollectionId || 'users',
@@ -101,11 +100,9 @@ const ViewAssignments: React.FC = () => {
       const map: Record<string, string> = {};
       usersRes.documents.forEach((doc: any) => {
         const name = doc.name || doc.fullName || 'Unknown User';
-        // Map by the custom 'userId' property stored in the document
         if (doc.userId) {
           map[doc.userId] = name;
         }
-        // Also map by document $id just in case some entries use standard Appwrite IDs
         map[doc.$id] = name;
       });
       return map;
@@ -138,7 +135,6 @@ const ViewAssignments: React.FC = () => {
         setNewCourseId(uniqueCourses[0].id);
       }
 
-      // Collect all lecturer IDs and fetch their corresponding names from the userCollection
       const lecturerIds = assignmentsRes.documents.map((doc: any) => doc.lecturerId);
       const userNameMap = await fetchUserNamesMap(lecturerIds);
 
@@ -214,21 +210,41 @@ const ViewAssignments: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this assignment?')) return;
+    if (!window.confirm('Are you sure you want to delete this assignment? All associated student submissions will also be deleted.')) return;
 
     try {
       setDeletingId(id);
+
+      // 1. Fetch all submissions linked to this assignment
+      const submissionsRes = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.submissionsId || 'submissions',
+        [Query.equal('assignmentId', id)]
+      );
+
+      // 2. Delete all matching submissions in parallel
+      const deletionPromises = submissionsRes.documents.map((sub: any) =>
+        databases.deleteDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.submissionsId || 'submissions',
+          sub.$id
+        )
+      );
+      await Promise.all(deletionPromises);
+
+      // 3. Delete the assignment document itself
       await databases.deleteDocument(
         appwriteConfig.databaseId,
         appwriteConfig.assignmentId || 'assignments',
         id
       );
+
       setAssignments((prev) => prev.filter((item) => item.$id !== id));
-      setSuccessMessage('Assignment deleted successfully.');
+      setSuccessMessage('Assignment and associated submissions deleted successfully.');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err: any) {
-      console.error('Error deleting assignment:', err);
-      setError(err.message || 'Failed to delete assignment.');
+      console.error('Error deleting assignment and submissions:', err);
+      setError(err.message || 'Failed to delete assignment and submissions.');
       setTimeout(() => setError(''), 4000);
     } finally {
       setDeletingId(null);
@@ -249,7 +265,6 @@ const ViewAssignments: React.FC = () => {
         [Query.equal('assignmentId', assignment.$id)]
       );
 
-      // Collect student IDs and fetch their corresponding names from the userCollection
       const studentIds = res.documents.map((doc: any) => doc.studentId);
       const studentNameMap = await fetchUserNamesMap(studentIds);
 
