@@ -11,7 +11,8 @@ import {
   Users,
   GraduationCap,
   Sparkles,
-  RotateCw
+  RotateCw,
+  ShieldCheck
 } from 'lucide-react';
 import { client, databases, account, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
@@ -210,7 +211,6 @@ export default function Chat() {
             { lastSeen: new Date().toISOString() }
           );
         } else {
-          // Fallback check matching document ID directly to auth ID if userId attribute isn't indexed
           try {
             await databases.updateDocument(
               appwriteConfig.databaseId,
@@ -388,7 +388,7 @@ export default function Chat() {
   const getPeerDetails = (participantIds: string[] = []) => {
     const peerAuthId = participantIds.find(id => id !== currentUserId);
     const peerUser = allUsers.find(u => (u.userId === peerAuthId || u.$id === peerAuthId));
-    return peerUser || { name: 'Unknown User', role: 'member', email: '', lastSeen: '' };
+    return peerUser || { name: 'Unknown User', role: 'student', email: '', lastSeen: '' };
   };
 
   const formatPresence = (lastSeenString?: string) => {
@@ -406,6 +406,32 @@ export default function Chat() {
       return { status: 'away', label: `Active ${diffHours}h ago` };
     } else {
       return { status: 'offline', label: 'Offline' };
+    }
+  };
+
+  const renderRoleBadge = (role?: string) => {
+    const normalizedRole = role?.toLowerCase() || 'student';
+    if (normalizedRole === 'lecturer') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/60 shrink-0">
+          <GraduationCap className="w-3 h-3" />
+          Lecturer
+        </span>
+      );
+    } else if (normalizedRole === 'admin') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60 shrink-0">
+          <ShieldCheck className="w-3 h-3" />
+          Admin
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/60 shrink-0">
+          <User className="w-3 h-3" />
+          Student
+        </span>
+      );
     }
   };
 
@@ -515,13 +541,9 @@ export default function Chat() {
                         }`} />
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <h4 className="text-xs font-semibold text-slate-800 truncate">{peer.name}</h4>
-                          {thread.lastMessageAt && (
-                            <span className="text-[10px] text-slate-400 shrink-0">
-                              {new Date(thread.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
+                          {renderRoleBadge(peer.role)}
                         </div>
                         <div className="flex items-center justify-between">
                           <p className={`text-xs truncate font-normal ${unreadCount > 0 ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>
@@ -555,8 +577,11 @@ export default function Chat() {
                       <div className="w-9 h-9 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                         {userObj.role === 'lecturer' ? <GraduationCap className="w-4 h-4 text-indigo-600" /> : <User className="w-4 h-4 text-slate-600" />}
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{userObj.name}</h4>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{userObj.name}</h4>
+                          {renderRoleBadge(userObj.role)}
+                        </div>
                         <p className="text-[11px] text-slate-400 truncate">{userObj.email || userObj.campusId || userObj.role}</p>
                       </div>
                     </div>
@@ -585,10 +610,13 @@ export default function Chat() {
                   <div className="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-medium text-xs shadow-xs">
                     <User className="w-4 h-4" />
                   </div>
-                  <div>
-                    <h3 className="text-xs font-semibold text-slate-800">
-                      {getPeerDetails(activeThread.participantIds).name}
-                    </h3>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-semibold text-slate-800">
+                        {getPeerDetails(activeThread.participantIds).name}
+                      </h3>
+                      {renderRoleBadge(getPeerDetails(activeThread.participantIds).role)}
+                    </div>
                     {(() => {
                       const peer = getPeerDetails(activeThread.participantIds);
                       const presence = formatPresence(peer.lastSeen);
