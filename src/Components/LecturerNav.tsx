@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Menu, X } from 'lucide-react';
 import { auth } from '../appwrite/Auth';
+import logo from "../assets/icons/logo.png"
 import { LecturerNavItems } from '../Utils/constants';
+
 
 export default function LecturerNav() {
   const navigate = useNavigate();
@@ -40,8 +42,8 @@ export default function LecturerNav() {
       {/* Mobile Ultra-Clean Floating Fixed Navbar */}
       <header className="md:hidden  fixed top-3 inset-x-3 z-50 bg-white/85 backdrop-blur-xl border border-slate-200/60 rounded-2xl px-4 py-2.5 flex items-center justify-between shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-semibold text-xs border border-indigo-100/60 shrink-0">
-            LC
+          <div className="w-8 h-8 rounded-xl  text-indigo-600 flex items-center justify-center font-semibold text-xs  shrink-0">
+           <img src={logo} className="rounded-xl" alt="" />
           </div>
           <div className="min-w-0">
             <span className="font-semibold text-slate-800 tracking-tight block text-xs truncate">LectCore</span>
@@ -104,8 +106,8 @@ export default function LecturerNav() {
       <aside className="hidden md:flex fixed left-4 top-4 bottom-4 w-72 bg-white/70 backdrop-blur-2xl border border-slate-200/60 rounded-3xl flex-col justify-between p-6 text-slate-600 shadow-[0_4px_30px_rgba(0,0,0,0.02)] z-20 overflow-y-auto">
         <div>
           <div className="flex items-center gap-3.5 mb-8 px-2">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-semibold text-sm border border-indigo-100/60 shadow-2xs">
-              LC
+            <div className="w-10 h-10 rounded-2xl  text-indigo-600 flex items-center justify-center font-semibold text-sm  shadow-2xs">
+              <img src={logo} className="rounded-xl" alt="" />
             </div>
             <div>
               <span className="font-semibold text-slate-800 tracking-tight block text-sm">LectCore</span>

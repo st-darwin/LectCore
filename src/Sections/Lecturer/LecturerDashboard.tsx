@@ -88,7 +88,7 @@ const LecturerDashboard = () => {
   };
 
   return (
-    <div className="space-y-8 pb-12 animate-in fade-in duration-300">
+    <div className="space-y-8  pb-12 animate-in fade-in duration-300">
       {/* Soft Clean SaaS Hero Segment */}
       <div className="relative overflow-hidden p-8 sm:p-10 rounded-[2.5rem] bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/50 text-slate-900 shadow-xl shadow-indigo-100/50 border border-indigo-100/80">
         <div className="absolute -right-16 -top-16 w-72 h-72 bg-indigo-200/30 rounded-full blur-3xl pointer-events-none" />

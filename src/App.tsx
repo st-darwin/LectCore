@@ -36,6 +36,7 @@ import ViewAnnouncement from "./Sections/Admin/ViewAnnouncement";
 import ViewAssignments from "./Sections/Admin/ViewAssignments";
 import SysLog from "./Sections/Admin/SysLog";
 import Settings from "./Sections/Admin/Settings";
+import Log from "./Sections/Student/Log"
 
 
 const router = createBrowserRouter(
@@ -91,6 +92,7 @@ const router = createBrowserRouter(
           <Route path="announcements" element={<StudentAnnouncement/>} />
           <Route path="assignments" element={<StudentAssignmentsView/>} />
           <Route path="assignment/:assignmentId" element={<StudentAssignmentSubmit/>} />
+          <Route path="real-time-sync" element={<Log/>}  />
 
         {/* Once you build student pages, add them here like this: */}
         {/* <Route index element={<StudentDashboard />} /> */}

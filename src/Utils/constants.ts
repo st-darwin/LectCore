@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity } from 'lucide-react';
 
 export const LecturerNavItems = [
   {
@@ -48,6 +48,13 @@ export const StudentNavItems = [
     label: 'Announcements',
     path: '/student/announcements',
     icon: Megaphone,
+  },
+  {
+    label : "Real time Sync",
+    path: "/student/real-time-sync",
+    icon : Activity
+
+
   },
 ];
 

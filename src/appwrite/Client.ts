@@ -14,6 +14,7 @@ export const appwriteConfig = {
   enrollmentsId : import.meta.env.VITE_APPWRITE_ENROLLMENTS_COLLECTION_ID,
   assignmentId: import.meta.env.VITE_APPWRITE_ASSIGNMENTS_COLLECTION_ID,
   submissionsId: import.meta.env.VITE_APPWRITE_SUBMISSIONS_COLLECTION_ID,
+  notificationsId: import.meta.env.VITE_APPWRITE_NOTIFICATION_COLLECTION_ID,
   
 
 
