@@ -6,9 +6,9 @@ import {
   CheckCircle2, 
   TrendingUp, 
   Calendar, 
-  ArrowRight, 
-  Sparkles, 
+  ArrowRight,  
   Bell,
+  Layers,
   Search,
   ChevronRight,
   Loader2,
@@ -205,7 +205,7 @@ const StudentDashboard = () => {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 border border-indigo-100/80 text-[11px] sm:text-xs text-indigo-600 shadow-2xs">
-              <Sparkles size={12} className="text-indigo-500 shrink-0" />
+              <Layers size={12} className="text-indigo-500 shrink-0" />
               <span>Academic Portal • Undergraduate Session</span>
             </div>
             <h1 className="text-xl sm:text-2xl md:text-3xl tracking-tight text-slate-800 font-medium break-words">

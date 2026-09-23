@@ -15,6 +15,8 @@ export const appwriteConfig = {
   assignmentId: import.meta.env.VITE_APPWRITE_ASSIGNMENTS_COLLECTION_ID,
   submissionsId: import.meta.env.VITE_APPWRITE_SUBMISSIONS_COLLECTION_ID,
   notificationsId: import.meta.env.VITE_APPWRITE_NOTIFICATION_COLLECTION_ID,
+  threadsId : import.meta.env.VITE_APPWRITE_THREADS_COLLECTION_ID,
+  messagesId : import.meta.env.VITE_APPWRITE_MESSAGES_COLLECTION_ID,
   
 
 
