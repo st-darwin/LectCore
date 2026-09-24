@@ -12,7 +12,11 @@ import {
   GraduationCap,
   Sparkles,
   RotateCw,
-  ShieldCheck
+  ShieldCheck,
+  MoreVertical,
+  Trash2,
+  Reply,
+  X
 } from 'lucide-react';
 import { client, databases, account, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
@@ -32,6 +36,7 @@ export interface Message {
   senderId: string;
   messageText: string;
   isRead: boolean;
+  replyToId?: string;
   $createdAt: string;
 }
 
@@ -62,6 +67,10 @@ export default function Chat() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  const [activeThreadMenuId, setActiveThreadMenuId] = useState<string | null>(null);
+  const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
    
   const messagesEndRef = useRef<HTMLDivElement>(null);
    
@@ -70,7 +79,6 @@ export default function Chat() {
     activeThreadRef.current = activeThread;
   }, [activeThread]);
 
-  // 1. Initialize user, threads, directory users, and unread metrics
   const initChatData = async (isManualRefresh = false) => {
     if (isManualRefresh) {
       setIsRefreshing(true);
@@ -105,7 +113,6 @@ export default function Chat() {
         )
       ]);
 
-      // Strict security filter to ensure other users' chats never leak in
       let fetchedThreads = (threadsRes.documents as unknown as Thread[]).filter(
         t => t.participantIds && t.participantIds.includes(user.$id)
       );
@@ -136,7 +143,6 @@ export default function Chat() {
     };
   }, []);
 
-  // 2. Real-time subscription for messages & user presence updates
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -165,11 +171,24 @@ export default function Chat() {
         return;
       }
 
+      if (response.events.some(e => e.includes(`.collections.${appwriteConfig.threadsId}.documents.delete`))) {
+        const deletedThread = response.payload as unknown as Thread;
+        setThreads(prev => prev.filter(t => t.$id !== deletedThread.$id));
+        if (activeThreadRef.current?.$id === deletedThread.$id) {
+          setActiveThread(null);
+        }
+        return;
+      }
+
       const payload = response.payload as unknown as Message;
       if (response.events.some(e => e.includes('.create'))) {
         if (activeThreadRef.current && payload.threadId === activeThreadRef.current.$id) {
           setMessages(prev => {
-            if (prev.some(m => m.$id === payload.$id)) return prev;
+            // Prevent duplication if the message was already added via optimistic update
+            if (prev.some(m => m.$id === payload.$id || (m.$id.startsWith('temp-') && m.messageText === payload.messageText && m.senderId === payload.senderId))) {
+              // Replace the temp message with the actual confirmed backend document preserving fields
+              return prev.map(m => (m.$id.startsWith('temp-') && m.messageText === payload.messageText && m.senderId === payload.senderId) ? payload : m);
+            }
             return [...prev, payload];
           });
         }
@@ -193,9 +212,12 @@ export default function Chat() {
           return [updatedThread, ...filtered];
         });
       }
+
+      if (response.events.some(e => e.includes('.delete'))) {
+        setMessages(prev => prev.filter(m => m.$id !== payload.$id));
+      }
     });
 
-    // Immediate presence heartbeat on mount, followed by 30s interval
     const updatePresence = async () => {
       try {
         const userDocs = await databases.listDocuments(
@@ -218,13 +240,9 @@ export default function Chat() {
               currentUserId,
               { lastSeen: new Date().toISOString() }
             );
-          } catch (innerErr) {
-            // Ignore if doc doesn't exist under auth id directly
-          }
+          } catch (innerErr) {}
         }
-      } catch (err) {
-        // Silent fail for background heartbeat sync
-      }
+      } catch (err) {}
     };
 
     updatePresence();
@@ -237,7 +255,6 @@ export default function Chat() {
     };
   }, [currentUserId]);
 
-  // 3. Fetch messages & mark unread messages as read when opening a thread
   useEffect(() => {
     if (!activeThread || !currentUserId) return;
 
@@ -259,7 +276,6 @@ export default function Chat() {
         if (isMounted) {
           setMessages(response.documents as unknown as Message[]);
           setIsLoadingMessages(false);
-
           setUnreadCounts(prev => ({ ...prev, [activeThread.$id]: 0 }));
 
           const unreadMsgs = response.documents.filter(
@@ -337,7 +353,10 @@ export default function Chat() {
     if (!newMessageText.trim() || !activeThread || !currentUserId || isSending) return;
 
     const textToSend = newMessageText.trim();
+    const replyTargetId = replyingTo?.$id;
+    
     setNewMessageText('');
+    setReplyingTo(null);
     setIsSending(true);
 
     const tempMessageId = `temp-${Date.now()}`;
@@ -347,22 +366,29 @@ export default function Chat() {
       senderId: currentUserId,
       messageText: textToSend,
       isRead: false,
+      replyToId: replyTargetId, 
       $createdAt: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, optimisticMessage]);
 
     try {
+      const payload: any = {
+        threadId: activeThread.$id,
+        senderId: currentUserId,
+        messageText: textToSend,
+        isRead: false,
+      };
+
+      if (replyTargetId) {
+        payload.replyToId = replyTargetId;
+      }
+
       const createdMsg = await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.messagesId,
         ID.unique(),
-        {
-          threadId: activeThread.$id,
-          senderId: currentUserId,
-          messageText: textToSend,
-          isRead: false,
-        }
+        payload
       );
 
       await databases.updateDocument(
@@ -382,6 +408,39 @@ export default function Chat() {
       setNewMessageText(textToSend);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleDeleteThread = async (e: React.MouseEvent, threadId: string) => {
+    e.stopPropagation();
+    setActiveThreadMenuId(null);
+
+    try {
+      await databases.deleteDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.threadsId,
+        threadId
+      );
+      setThreads(prev => prev.filter(t => t.$id !== threadId));
+      if (activeThread?.$id === threadId) {
+        setActiveThread(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete thread:', error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    setActiveMessageMenuId(null);
+    try {
+      await databases.deleteDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.messagesId,
+        messageId
+      );
+      setMessages(prev => prev.filter(m => m.$id !== messageId));
+    } catch (error) {
+      console.error('Failed to delete message:', error);
     }
   };
 
@@ -462,7 +521,7 @@ export default function Chat() {
          
         {/* Sidebar */}
         <div className={`lg:col-span-4 border-r border-slate-100 flex flex-col h-full bg-slate-50/40 overflow-hidden ${activeThread ? 'hidden lg:flex' : 'flex'}`}>
-           
+            
           <div className="p-3 border-b border-slate-100 flex items-center gap-1.5 bg-white/60 shrink-0">
             <div className="grid grid-cols-3 gap-1.5 flex-1">
               {(['chats', 'lecturers', 'students'] as const).map((tab) => (
@@ -525,10 +584,10 @@ export default function Chat() {
                   const unreadCount = unreadCounts[thread.$id] || 0;
 
                   return (
-                    <button
+                    <div
                       key={thread.$id}
                       onClick={() => setActiveThread(thread)}
-                      className={`w-full p-4 text-left transition-all flex items-start gap-3 cursor-pointer ${
+                      className={`w-full p-4 text-left transition-all flex items-start gap-3 cursor-pointer relative group ${
                         isSelected ? 'bg-indigo-50/60 border-l-3 border-indigo-600' : 'hover:bg-slate-100/50'
                       }`}
                     >
@@ -543,7 +602,34 @@ export default function Chat() {
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <h4 className="text-xs font-semibold text-slate-800 truncate">{peer.name}</h4>
-                          {renderRoleBadge(peer.role)}
+                          <div className="flex items-center gap-1.5">
+                            {renderRoleBadge(peer.role)}
+                            
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveThreadMenuId(activeThreadMenuId === thread.$id ? null : thread.$id);
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-all"
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+
+                              {activeThreadMenuId === thread.$id && (
+                                <div className="absolute right-0 top-6 w-32 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20">
+                                  <button
+                                    onClick={(e) => handleDeleteThread(e, thread.$id)}
+                                    className="w-full px-3 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete Chat
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                          </div>
                         </div>
                         <div className="flex items-center justify-between">
                           <p className={`text-xs truncate font-normal ${unreadCount > 0 ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>
@@ -556,7 +642,7 @@ export default function Chat() {
                           )}
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })
               )
@@ -646,21 +732,71 @@ export default function Chat() {
                 ) : (
                   messages.map((msg) => {
                     const isMe = msg.senderId === currentUserId;
+                    const repliedMsg = messages.find(m => m.$id === msg.replyToId);
 
                     return (
                       <div 
                         key={msg.$id} 
-                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-200`}
+                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1 relative group animate-in fade-in slide-in-from-bottom-2 duration-200`}
                       >
-                        <div 
-                          className={`max-w-[80%] sm:max-w-[70%] px-4 py-3 rounded-2xl text-xs leading-relaxed shadow-xs ${
-                            isMe 
-                              ? 'bg-indigo-600 text-white rounded-br-xs font-normal' 
-                              : 'bg-white text-slate-700 border border-slate-200/80 rounded-bl-xs'
-                          }`}
-                        >
-                          {msg.messageText}
+                        <div className={`flex items-center gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                          <div 
+                            className={`max-w-[80%] sm:max-w-[70%] px-4 py-3 rounded-2xl text-xs leading-relaxed shadow-xs relative ${
+                              isMe 
+                                ? 'bg-indigo-600 text-white rounded-br-xs font-normal' 
+                                : 'bg-white text-slate-700 border border-slate-200/80 rounded-bl-xs'
+                            }`}
+                          >
+                            {/* Chat App Style Replied Message Banner */}
+                            {repliedMsg && (
+                              <div className={`mb-2 px-3 py-1.5 rounded-lg text-[11px] border-l-2 flex flex-col gap-0.5 ${
+                                isMe 
+                                  ? 'bg-indigo-700/50 border-white text-indigo-50' 
+                                  : 'bg-slate-100/90 border-indigo-600 text-slate-600'
+                              }`}>
+                                <span className={`font-semibold text-[10px] ${isMe ? 'text-indigo-200' : 'text-indigo-600'}`}>
+                                  {repliedMsg.senderId === currentUserId ? 'You' : getPeerDetails(activeThread.participantIds).name}
+                                </span>
+                                <p className="truncate opacity-90">{repliedMsg.messageText}</p>
+                              </div>
+                            )}
+
+                            {msg.messageText}
+                          </div>
+
+                          {/* Message Actions 3-Dots Button */}
+                          <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => setActiveMessageMenuId(activeMessageMenuId === msg.$id ? null : msg.$id)}
+                              className="p-1.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 shadow-xs cursor-pointer"
+                            >
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            </button>
+
+                            {activeMessageMenuId === msg.$id && (
+                              <div className={`absolute ${isMe ? 'right-0' : 'left-0'} top-7 w-32 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-20`}>
+                                <button
+                                  onClick={() => {
+                                    setReplyingTo(msg);
+                                    setActiveMessageMenuId(null);
+                                  }}
+                                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Reply className="w-3.5 h-3.5 text-indigo-600" />
+                                  Reply
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteMessage(msg.$id)}
+                                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
+
                         <div className="flex items-center gap-1 text-[10px] text-slate-400 px-1 font-medium">
                           <Clock className="w-3 h-3 text-slate-300" />
                           <span>{new Date(msg.$createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -672,6 +808,26 @@ export default function Chat() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Chat App Style Reply Preview Banner above Input */}
+              {replyingTo && (
+                <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200/60 flex items-center justify-between text-xs shrink-0 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-3 truncate text-slate-600 border-l-2 border-indigo-600 pl-3 py-0.5 my-0.5">
+                    <div className="flex flex-col truncate">
+                      <span className="font-semibold text-[11px] text-indigo-600">
+                        Replying to {replyingTo.senderId === currentUserId ? 'yourself' : getPeerDetails(activeThread.participantIds).name}
+                      </span>
+                      <span className="truncate text-slate-500 text-[11px]">{replyingTo.messageText}</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setReplyingTo(null)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 cursor-pointer transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
               <form onSubmit={handleSendMessage} className="p-3 sm:p-4 border-t border-slate-100 bg-white flex items-center gap-2.5 shrink-0">
                 <input
