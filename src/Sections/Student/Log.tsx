@@ -40,7 +40,7 @@ export default function Log() {
         if (!user?.$id || !isMounted) return;
         const studentId = user.$id;
 
-        // 1. Get courses the student is enrolled in
+        // 1. get all courses enrolled by the student based on the student id
         const enrollmentsRes = await databases.listDocuments(
           appwriteConfig.databaseId,
           appwriteConfig.enrollmentsId,
