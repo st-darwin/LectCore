@@ -51,6 +51,7 @@ export interface AppUser {
   email: string;
   role: 'student' | 'lecturer' | 'admin';
   campusId: string;
+  avatarUrl?: string;
   lastSeen?: string;
 }
 
@@ -81,11 +82,21 @@ export default function Chat() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
    
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll and unread tracking states
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [unreadBelowCount, setUnreadBelowCount] = useState(0);
    
   const activeThreadRef = useRef<Thread | null>(null);
   useEffect(() => {
     activeThreadRef.current = activeThread;
   }, [activeThread]);
+
+  const isAtBottomRef = useRef(isAtBottom);
+  useEffect(() => {
+    isAtBottomRef.current = isAtBottom;
+  }, [isAtBottom]);
 
   const initChatData = async (isManualRefresh = false) => {
     if (isManualRefresh) {
@@ -131,6 +142,7 @@ export default function Chat() {
       const counts: Record<string, number> = {};
       unreadRes.documents.forEach((doc: any) => {
         if (doc.senderId !== user.$id) {
+          if (activeThreadRef.current?.$id === doc.threadId) return;
           counts[doc.threadId] = (counts[doc.threadId] || 0) + 1;
         }
       });
@@ -143,7 +155,7 @@ export default function Chat() {
     }
   };
 
-  // 2-Second Silent Background Polling Sync to bypass local WebSocket dropouts
+  // Background Polling Sync
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -173,6 +185,7 @@ export default function Chat() {
           const counts: Record<string, number> = {};
           unreadRes.documents.forEach((doc: any) => {
             if (doc.senderId !== currentUserId) {
+              if (activeThreadRef.current?.$id === doc.threadId) return;
               counts[doc.threadId] = (counts[doc.threadId] || 0) + 1;
             }
           });
@@ -191,36 +204,86 @@ export default function Chat() {
           ).catch(() => null);
 
           if (msgRes) {
-            setMessages(msgRes.documents as unknown as Message[]);
+            const fetchedMsgs = msgRes.documents as unknown as Message[];
+            const unreadIncoming = fetchedMsgs.filter(
+              m => m.senderId !== currentUserId && !m.isRead
+            );
+
+            // The chat is open, so incoming messages in this thread are read.
+            // Persist that state first so the 2-second polling loop cannot put
+            // stale isRead:false values back into local state.
+            const updatedIds = new Set<string>();
+
+            if (unreadIncoming.length > 0) {
+              await Promise.all(
+                unreadIncoming.map(async (message) => {
+                  try {
+                    await databases.updateDocument(
+                      appwriteConfig.databaseId,
+                      appwriteConfig.messagesId,
+                      message.$id,
+                      { isRead: true }
+                    );
+                    updatedIds.add(message.$id);
+                  } catch (error) {
+                    console.error(`Failed to mark message ${message.$id} as read:`, error);
+                  }
+                })
+              );
+            }
+
+            const normalizedMsgs = fetchedMsgs.map(message =>
+              updatedIds.has(message.$id)
+                ? { ...message, isRead: true }
+                : message
+            );
+
+            setMessages(prev => {
+              const existingIds = new Set(prev.map(m => m.$id));
+              const trulyNewMsgs = normalizedMsgs.filter(m => !existingIds.has(m.$id));
+
+              if (trulyNewMsgs.length > 0) {
+                const incomingNewUnread = trulyNewMsgs.filter(
+                  m => m.senderId !== currentUserId && !m.isRead
+                );
+                if (incomingNewUnread.length > 0 && !isAtBottomRef.current) {
+                  setUnreadBelowCount(c => c + incomingNewUnread.length);
+                }
+              }
+
+              // Never replace a locally-read message with a stale unread copy.
+              const localReadIds = new Set(
+                prev.filter(m => m.isRead).map(m => m.$id)
+              );
+
+              return normalizedMsgs.map(message =>
+                localReadIds.has(message.$id) && message.senderId !== currentUserId
+                  ? { ...message, isRead: true }
+                  : message
+              );
+            });
           }
         }
-      } catch (err) {
-        // Silent background sync fail catch
-      }
+      } catch (err) {}
     }, 2000);
 
     return () => clearInterval(syncInterval);
   }, [currentUserId]);
 
   useEffect(() => {
-    let isMounted = true;
     initChatData();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
+  // Real-time listener: instantly marks incoming messages as read in DB if the thread is currently open
   useEffect(() => {
     if (!currentUserId) return;
     
-    // Guard against undefined configuration IDs triggering the "Missing channels" error[cite: 3]
     if (
       !appwriteConfig.databaseId || 
       !appwriteConfig.messagesId || 
       !appwriteConfig.threadsId || 
       !appwriteConfig.userCollectionId
     ) {
-      console.warn('Appwrite configuration IDs are missing. Skipping real-time subscription.');
       return;
     }
 
@@ -229,7 +292,7 @@ export default function Chat() {
     const userChannel = `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.userCollectionId}.documents`;
     const threadChannel = `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.threadsId}.documents`;
 
-    const unsubscribe = client.subscribe([msgChannel, userChannel, threadChannel], (response) => {
+    const unsubscribe = client.subscribe([msgChannel, userChannel, threadChannel], async (response) => {
       if (!isMounted) return;
 
       if (response.events.some(e => e.includes(`.collections.${appwriteConfig.userCollectionId}.documents`))) {
@@ -261,16 +324,47 @@ export default function Chat() {
 
       const payload = response.payload as unknown as Message;
       if (response.events.some(e => e.includes('.create'))) {
-        if (activeThreadRef.current && payload.threadId === activeThreadRef.current.$id) {
+        const isOpenThread = activeThreadRef.current && payload.threadId === activeThreadRef.current.$id;
+
+        if (isOpenThread) {
           setMessages(prev => {
             if (prev.some(m => m.$id === payload.$id || (m.$id.startsWith('temp-') && m.senderId === payload.senderId))) {
               return prev.map(m => (m.$id.startsWith('temp-') && m.senderId === payload.senderId) ? payload : m);
             }
             return [...prev, payload];
           });
+
+          if (payload.senderId !== currentUserId && !isAtBottomRef.current) {
+            setUnreadBelowCount(c => c + 1);
+          }
+
+          // If we are currently viewing this thread, immediately mark the incoming message as read in the backend database
+          if (payload.senderId !== currentUserId && !payload.isRead) {
+            try {
+              await databases.updateDocument(
+                appwriteConfig.databaseId,
+                appwriteConfig.messagesId,
+                payload.$id,
+                { isRead: true }
+              );
+
+              // Keep the local message in sync with Appwrite immediately.
+              setMessages(prev =>
+                prev.map(message =>
+                  message.$id === payload.$id
+                    ? { ...message, isRead: true }
+                    : message
+                )
+              );
+            } catch (err) {
+              console.error(`Failed to mark incoming message ${payload.$id} as read:`, err);
+            }
+          }
         }
 
-        if (payload.senderId !== currentUserId && (!activeThreadRef.current || activeThreadRef.current.$id !== payload.threadId)) {
+        if (isOpenThread) {
+          setUnreadCounts(prev => ({ ...prev, [payload.threadId]: 0 }));
+        } else if (payload.senderId !== currentUserId) {
           setUnreadCounts(prev => ({
             ...prev,
             [payload.threadId]: (prev[payload.threadId] || 0) + 1
@@ -332,47 +426,82 @@ export default function Chat() {
     };
   }, [currentUserId]);
 
+  // When a thread is opened, mark every incoming unread message in that
+  // thread as read in Appwrite before keeping the messages in local state.
   useEffect(() => {
     if (!activeThread || !currentUserId) return;
 
     let isMounted = true;
+    const threadId = activeThread.$id;
+
+    setUnreadBelowCount(0);
+    setIsAtBottom(true);
+    setUnreadCounts(prev => ({ ...prev, [threadId]: 0 }));
+    setIsLoadingMessages(true);
 
     const fetchAndMarkRead = async () => {
-      setIsLoadingMessages(true);
       try {
         const response = await databases.listDocuments(
           appwriteConfig.databaseId,
           appwriteConfig.messagesId,
           [
-            Query.equal('threadId', activeThread.$id),
+            Query.equal('threadId', threadId),
             Query.orderAsc('$createdAt'),
             Query.limit(50)
           ]
         );
 
-        if (isMounted) {
-          setMessages(response.documents as unknown as Message[]);
-          setIsLoadingMessages(false);
-          setUnreadCounts(prev => ({ ...prev, [activeThread.$id]: 0 }));
+        if (!isMounted) return;
 
-          const unreadMsgs = response.documents.filter(
-            (m: any) => !m.isRead && m.senderId !== currentUserId
-          );
-           
+        const fetchedMessages = response.documents as unknown as Message[];
+        const unreadIncoming = fetchedMessages.filter(
+          message => message.senderId !== currentUserId && !message.isRead
+        );
+
+        // Only mark messages as read if Appwrite confirms the update.
+        // This prevents the UI from pretending a failed database update succeeded.
+        const successfullyReadIds = new Set<string>();
+
+        if (unreadIncoming.length > 0) {
           await Promise.all(
-            unreadMsgs.map((m: any) =>
-              databases.updateDocument(
-                appwriteConfig.databaseId,
-                appwriteConfig.messagesId,
-                m.$id,
-                { isRead: true }
-              )
-            )
+            unreadIncoming.map(async (message) => {
+              try {
+                await databases.updateDocument(
+                  appwriteConfig.databaseId,
+                  appwriteConfig.messagesId,
+                  message.$id,
+                  { isRead: true }
+                );
+                successfullyReadIds.add(message.$id);
+              } catch (error) {
+                console.error(
+                  `Failed to mark message ${message.$id} as read:`,
+                  error
+                );
+              }
+            })
           );
         }
+
+        if (!isMounted) return;
+
+        const normalizedMessages = fetchedMessages.map(message =>
+          successfullyReadIds.has(message.$id)
+            ? { ...message, isRead: true }
+            : message
+        );
+
+        setMessages(normalizedMessages);
+        setIsLoadingMessages(false);
+
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        });
       } catch (error) {
         console.error('Failed to fetch messages:', error);
-        if (isMounted) setIsLoadingMessages(false);
+        if (isMounted) {
+          setIsLoadingMessages(false);
+        }
       }
     };
 
@@ -383,9 +512,16 @@ export default function Chat() {
     };
   }, [activeThread, currentUserId]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    const bottomReached = distanceToBottom < 80;
+    
+    setIsAtBottom(bottomReached);
+    if (bottomReached) {
+      setUnreadBelowCount(0);
+    }
+  };
 
   const handleSelectUser = async (targetUser: AppUser) => {
     const targetAuthId = targetUser.userId || targetUser.$id;
@@ -437,6 +573,12 @@ export default function Chat() {
     setSelectedFile(null);
     setReplyingTo(null);
     setIsSending(true);
+    setUnreadBelowCount(0);
+    setIsAtBottom(true);
+
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
 
     const tempMessageId = `temp-${Date.now()}`;
     const optimisticMessage: Message = {
@@ -540,7 +682,7 @@ export default function Chat() {
   const getPeerDetails = (participantIds: string[] = []) => {
     const peerAuthId = participantIds.find(id => id !== currentUserId);
     const peerUser = allUsers.find(u => (u.userId === peerAuthId || u.$id === peerAuthId));
-    return peerUser || { name: 'Unknown User', role: 'student', email: '', lastSeen: '' };
+    return peerUser || { name: 'Unknown User', role: 'student', email: '', avatarUrl: '', lastSeen: '' };
   };
 
   const formatPresence = (lastSeenString?: string) => {
@@ -685,8 +827,12 @@ export default function Chat() {
                       }`}
                     >
                       <div className="relative shrink-0">
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-100/80 text-indigo-600 flex items-center justify-center font-medium text-xs">
-                          <User className="w-4 h-4" />
+                        <div className="w-10 h-10 rounded-2xl overflow-hidden bg-indigo-50 border border-indigo-100 flex items-center justify-center shadow-inner relative">
+                          {peer.avatarUrl ? (
+                            <img src={peer.avatarUrl} alt={peer.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-4 h-4 text-indigo-400" />
+                          )}
                         </div>
                         <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
                           presence.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
@@ -753,8 +899,12 @@ export default function Chat() {
                     className="w-full p-3.5 text-left transition-all hover:bg-indigo-50/40 flex items-center justify-between gap-3 cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                        {userObj.role === 'lecturer' ? <GraduationCap className="w-4 h-4 text-indigo-600" /> : <User className="w-4 h-4 text-slate-600" />}
+                      <div className="w-9 h-9 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/60 flex items-center justify-center shrink-0">
+                        {userObj.avatarUrl ? (
+                          <img src={userObj.avatarUrl} alt={userObj.name} className="w-full h-full object-cover" />
+                        ) : (
+                          userObj.role === 'lecturer' ? <GraduationCap className="w-4 h-4 text-indigo-600" /> : <User className="w-4 h-4 text-slate-600" />
+                        )}
                       </div>
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2">
@@ -786,8 +936,12 @@ export default function Chat() {
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <div className="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-medium text-xs shadow-xs">
-                    <User className="w-4 h-4" />
+                  <div className="w-9 h-9 rounded-2xl overflow-hidden bg-indigo-50 border border-indigo-100 flex items-center justify-center shadow-xs">
+                    {getPeerDetails(activeThread.participantIds).avatarUrl ? (
+                      <img src={getPeerDetails(activeThread.participantIds).avatarUrl} alt="Peer" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-4 h-4 text-indigo-500" />
+                    )}
                   </div>
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
@@ -810,7 +964,12 @@ export default function Chat() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/25 min-h-0">
+              {/* Message List Container with Scroll Handler & WhatsApp Scroll-to-Bottom Button */}
+              <div 
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/25 min-h-0 relative"
+              >
                 {isLoadingMessages ? (
                   <div className="h-full flex flex-col items-center justify-center gap-2">
                     <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
@@ -922,6 +1081,28 @@ export default function Chat() {
                   })
                 )}
                 <div ref={messagesEndRef} />
+
+                {/* WhatsApp-style Floating Scroll to Bottom Button */}
+                {!isAtBottom && (
+                  <div className="sticky bottom-4 float-right clear-both mr-2 z-20">
+                    <button
+                      onClick={() => {
+                        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                        setUnreadBelowCount(0);
+                        setIsAtBottom(true);
+                      }}
+                      className="relative p-3 rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 transition-all cursor-pointer flex items-center justify-center group"
+                      title="Scroll to bottom"
+                    >
+                      <ArrowLeft className="w-4 h-4 rotate-[-90deg]" />
+                      {unreadBelowCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                          {unreadBelowCount}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Reply Preview Banner */}

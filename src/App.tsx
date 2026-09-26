@@ -38,6 +38,7 @@ import SysLog from "./Sections/Admin/SysLog";
 import Settings from "./Sections/Admin/Settings";
 import Log from "./Sections/Student/Log"
 import Chat from "./Sections/Student/Chat";
+import StudentSettings from "./Sections/Student/Settings";
 
 
 const router = createBrowserRouter(
@@ -67,6 +68,7 @@ const router = createBrowserRouter(
         <Route path="logs" element={<SysLog/>} />
         <Route path="settings" element={<Settings/>} />
 
+
       </Route>
 
       {/* Lecturer Layout & Nested Routes */}
@@ -95,7 +97,7 @@ const router = createBrowserRouter(
           <Route path="assignment/:assignmentId" element={<StudentAssignmentSubmit/>} />
           <Route path="real-time-sync" element={<Log/>}  />
           <Route path="chat" element={<Chat/>} />
-
+         <Route  path="settings" element={<StudentSettings/>} />
         {/* Once you build student pages, add them here like this: */}
         {/* <Route index element={<StudentDashboard />} /> */}
       </Route>
