@@ -16,9 +16,12 @@ import {
   MoreVertical,
   Trash2,
   Reply,
-  X
+  X,
+  Paperclip,
+  FileText,
+  Image as ImageIcon
 } from 'lucide-react';
-import { client, databases, account, appwriteConfig } from '../../appwrite/Client';
+import { client, databases, account, storage, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
 import AdminHeader from '../../Components/AdminHeader';
 
@@ -37,6 +40,7 @@ export interface Message {
   messageText: string;
   isRead: boolean;
   replyToId?: string;
+  fileUrl?: string;
   $createdAt: string;
 }
 
@@ -56,6 +60,10 @@ export default function Chat() {
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageText, setNewMessageText] = useState('');
+  
+  // Attachment state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
    
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
@@ -135,6 +143,65 @@ export default function Chat() {
     }
   };
 
+  // 2-Second Silent Background Polling Sync to bypass local WebSocket dropouts
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const syncInterval = setInterval(async () => {
+      try {
+        const [threadsRes, unreadRes] = await Promise.all([
+          databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.threadsId,
+            [Query.contains('participantIds', currentUserId), Query.orderDesc('lastMessageAt')]
+          ).catch(() => null),
+          databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.messagesId,
+            [Query.equal('isRead', false), Query.limit(100)]
+          ).catch(() => null)
+        ]);
+
+        if (threadsRes) {
+          let fetchedThreads = (threadsRes.documents as unknown as Thread[]).filter(
+            t => t.participantIds && t.participantIds.includes(currentUserId)
+          );
+          setThreads(fetchedThreads);
+        }
+
+        if (unreadRes) {
+          const counts: Record<string, number> = {};
+          unreadRes.documents.forEach((doc: any) => {
+            if (doc.senderId !== currentUserId) {
+              counts[doc.threadId] = (counts[doc.threadId] || 0) + 1;
+            }
+          });
+          setUnreadCounts(counts);
+        }
+
+        if (activeThreadRef.current) {
+          const msgRes = await databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.messagesId,
+            [
+              Query.equal('threadId', activeThreadRef.current.$id),
+              Query.orderAsc('$createdAt'),
+              Query.limit(50)
+            ]
+          ).catch(() => null);
+
+          if (msgRes) {
+            setMessages(msgRes.documents as unknown as Message[]);
+          }
+        }
+      } catch (err) {
+        // Silent background sync fail catch
+      }
+    }, 2000);
+
+    return () => clearInterval(syncInterval);
+  }, [currentUserId]);
+
   useEffect(() => {
     let isMounted = true;
     initChatData();
@@ -145,6 +212,17 @@ export default function Chat() {
 
   useEffect(() => {
     if (!currentUserId) return;
+    
+    // Guard against undefined configuration IDs triggering the "Missing channels" error[cite: 3]
+    if (
+      !appwriteConfig.databaseId || 
+      !appwriteConfig.messagesId || 
+      !appwriteConfig.threadsId || 
+      !appwriteConfig.userCollectionId
+    ) {
+      console.warn('Appwrite configuration IDs are missing. Skipping real-time subscription.');
+      return;
+    }
 
     let isMounted = true;
     const msgChannel = `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.messagesId}.documents`;
@@ -176,6 +254,7 @@ export default function Chat() {
         setThreads(prev => prev.filter(t => t.$id !== deletedThread.$id));
         if (activeThreadRef.current?.$id === deletedThread.$id) {
           setActiveThread(null);
+          setMessages([]);
         }
         return;
       }
@@ -184,10 +263,8 @@ export default function Chat() {
       if (response.events.some(e => e.includes('.create'))) {
         if (activeThreadRef.current && payload.threadId === activeThreadRef.current.$id) {
           setMessages(prev => {
-            // Prevent duplication if the message was already added via optimistic update
-            if (prev.some(m => m.$id === payload.$id || (m.$id.startsWith('temp-') && m.messageText === payload.messageText && m.senderId === payload.senderId))) {
-              // Replace the temp message with the actual confirmed backend document preserving fields
-              return prev.map(m => (m.$id.startsWith('temp-') && m.messageText === payload.messageText && m.senderId === payload.senderId) ? payload : m);
+            if (prev.some(m => m.$id === payload.$id || (m.$id.startsWith('temp-') && m.senderId === payload.senderId))) {
+              return prev.map(m => (m.$id.startsWith('temp-') && m.senderId === payload.senderId) ? payload : m);
             }
             return [...prev, payload];
           });
@@ -205,7 +282,7 @@ export default function Chat() {
           if (index === -1) return prev;
           const updatedThread = { 
             ...prev[index], 
-            lastMessage: payload.messageText, 
+            lastMessage: payload.messageText || 'Attachment', 
             lastMessageAt: payload.$createdAt 
           };
           const filtered = prev.filter(t => t.$id !== payload.threadId);
@@ -350,12 +427,14 @@ export default function Chat() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessageText.trim() || !activeThread || !currentUserId || isSending) return;
+    if ((!newMessageText.trim() && !selectedFile) || !activeThread || !currentUserId || isSending) return;
 
     const textToSend = newMessageText.trim();
+    const fileToSend = selectedFile;
     const replyTargetId = replyingTo?.$id;
     
     setNewMessageText('');
+    setSelectedFile(null);
     setReplyingTo(null);
     setIsSending(true);
 
@@ -364,15 +443,28 @@ export default function Chat() {
       $id: tempMessageId,
       threadId: activeThread.$id,
       senderId: currentUserId,
-      messageText: textToSend,
+      messageText: textToSend || (fileToSend ? `Sent an attachment: ${fileToSend.name}` : ''),
       isRead: false,
-      replyToId: replyTargetId, 
+      replyToId: replyTargetId,
+      fileUrl: fileToSend ? URL.createObjectURL(fileToSend) : undefined,
       $createdAt: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, optimisticMessage]);
 
     try {
+      let uploadedFileUrl = '';
+
+      if (fileToSend) {
+        const uploadedFile = await storage.createFile(
+          appwriteConfig.storageId,
+          ID.unique(),
+          fileToSend
+        );
+        const fileView = storage.getFileView(appwriteConfig.storageId, uploadedFile.$id);
+        uploadedFileUrl = fileView.toString();
+      }
+
       const payload: any = {
         threadId: activeThread.$id,
         senderId: currentUserId,
@@ -380,9 +472,8 @@ export default function Chat() {
         isRead: false,
       };
 
-      if (replyTargetId) {
-        payload.replyToId = replyTargetId;
-      }
+      if (replyTargetId) payload.replyToId = replyTargetId;
+      if (uploadedFileUrl) payload.fileUrl = uploadedFileUrl;
 
       const createdMsg = await databases.createDocument(
         appwriteConfig.databaseId,
@@ -396,7 +487,7 @@ export default function Chat() {
         appwriteConfig.threadsId,
         activeThread.$id,
         {
-          lastMessage: textToSend,
+          lastMessage: textToSend || 'Sent an attachment',
           lastMessageAt: new Date().toISOString(),
         }
       );
@@ -406,6 +497,7 @@ export default function Chat() {
       console.error('Failed to send message:', error);
       setMessages(prev => prev.filter(m => m.$id !== tempMessageId));
       setNewMessageText(textToSend);
+      setSelectedFile(fileToSend);
     } finally {
       setIsSending(false);
     }
@@ -424,6 +516,7 @@ export default function Chat() {
       setThreads(prev => prev.filter(t => t.$id !== threadId));
       if (activeThread?.$id === threadId) {
         setActiveThread(null);
+        setMessages([]);
       }
     } catch (error) {
       console.error('Failed to delete thread:', error);
@@ -733,6 +826,7 @@ export default function Chat() {
                   messages.map((msg) => {
                     const isMe = msg.senderId === currentUserId;
                     const repliedMsg = messages.find(m => m.$id === msg.replyToId);
+                    const isImage = msg.fileUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.fileUrl);
 
                     return (
                       <div 
@@ -741,27 +835,48 @@ export default function Chat() {
                       >
                         <div className={`flex items-center gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                           <div 
-                            className={`max-w-[80%] sm:max-w-[70%] px-4 py-3 rounded-2xl text-xs leading-relaxed shadow-xs relative ${
+                            className={`max-w-[80%] sm:max-w-[70%] px-4 py-3 rounded-2xl text-xs leading-relaxed shadow-xs relative space-y-2 ${
                               isMe 
-                                ? 'bg-indigo-600 text-white rounded-br-xs font-normal' 
+                                ? 'bg-white/95 text-slate-800 border border-indigo-800/20 rounded-br-xs font-normal' 
                                 : 'bg-white text-slate-700 border border-slate-200/80 rounded-bl-xs'
                             }`}
                           >
-                            {/* Chat App Style Replied Message Banner */}
+                            {/* Replied Message Banner */}
                             {repliedMsg && (
-                              <div className={`mb-2 px-3 py-1.5 rounded-lg text-[11px] border-l-2 flex flex-col gap-0.5 ${
+                              <div className={`px-3 py-1.5 rounded-lg text-[11px] border-l-2 flex flex-col gap-0.5 ${
                                 isMe 
-                                  ? 'bg-indigo-700/50 border-white text-indigo-50' 
+                                  ? 'bg-indigo-50/80 border-indigo-600 text-slate-600' 
                                   : 'bg-slate-100/90 border-indigo-600 text-slate-600'
                               }`}>
-                                <span className={`font-semibold text-[10px] ${isMe ? 'text-indigo-200' : 'text-indigo-600'}`}>
+                                <span className={`font-semibold text-[10px] ${isMe ? 'text-indigo-600' : 'text-indigo-600'}`}>
                                   {repliedMsg.senderId === currentUserId ? 'You' : getPeerDetails(activeThread.participantIds).name}
                                 </span>
-                                <p className="truncate opacity-90">{repliedMsg.messageText}</p>
+                                <p className="truncate opacity-90">{repliedMsg.messageText || 'Attachment'}</p>
                               </div>
                             )}
 
-                            {msg.messageText}
+                            {/* File Attachment Render */}
+                            {msg.fileUrl && (
+                              <div className="rounded-xl overflow-hidden">
+                                {isImage ? (
+                                  <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
+                                    <img src={msg.fileUrl} alt="attachment" className="max-h-48 rounded-xl object-cover w-full hover:opacity-95 transition-opacity" />
+                                  </a>
+                                ) : (
+                                  <a 
+                                    href={msg.fileUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className={`flex items-center gap-2.5 p-2.5 rounded-xl transition-all ${isMe ? 'bg-indigo-50 text-indigo-900 hover:bg-indigo-100/70' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80'}`}
+                                  >
+                                    <FileText className="w-5 h-5 shrink-0 text-indigo-600" />
+                                    <span className="truncate text-[11px] font-medium underline">View Attachment</span>
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {msg.messageText && <p>{msg.messageText}</p>}
                           </div>
 
                           {/* Message Actions 3-Dots Button */}
@@ -809,15 +924,15 @@ export default function Chat() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Chat App Style Reply Preview Banner above Input */}
+              {/* Reply Preview Banner */}
               {replyingTo && (
-                <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200/60 flex items-center justify-between text-xs shrink-0 animate-in fade-in duration-150">
+                <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200/60 flex items-center justify-between text-xs shrink-0">
                   <div className="flex items-center gap-3 truncate text-slate-600 border-l-2 border-indigo-600 pl-3 py-0.5 my-0.5">
                     <div className="flex flex-col truncate">
                       <span className="font-semibold text-[11px] text-indigo-600">
                         Replying to {replyingTo.senderId === currentUserId ? 'yourself' : getPeerDetails(activeThread.participantIds).name}
                       </span>
-                      <span className="truncate text-slate-500 text-[11px]">{replyingTo.messageText}</span>
+                      <span className="truncate text-slate-500 text-[11px]">{replyingTo.messageText || 'Attachment'}</span>
                     </div>
                   </div>
                   <button 
@@ -829,20 +944,51 @@ export default function Chat() {
                 </div>
               )}
 
+              {/* Selected File Preview Banner before sending */}
+              {selectedFile && (
+                <div className="px-4 py-2 bg-indigo-50/70 border-t border-indigo-100 flex items-center justify-between text-xs shrink-0">
+                  <div className="flex items-center gap-2 truncate text-indigo-900">
+                    <Paperclip className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="truncate font-medium">{selectedFile.name}</span>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedFile(null)}
+                    className="p-1 rounded-lg text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100/60 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Input Form */}
               <form onSubmit={handleSendMessage} className="p-3 sm:p-4 border-t border-slate-100 bg-white flex items-center gap-2.5 shrink-0">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={(e) => e.target.files?.[0] && setSelectedFile(e.target.files[0])} 
+                  className="hidden" 
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Attach file"
+                  className="p-3 rounded-2xl bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all cursor-pointer shrink-0"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
                 <input
                   type="text"
                   value={newMessageText}
                   onChange={(e) => setNewMessageText(e.target.value)}
-                  placeholder="Type a message..."
+                  placeholder="Type a message or attach a file..."
                   className="flex-1 bg-slate-100/70 border border-slate-200/80 rounded-2xl px-4 py-3 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
                 />
                 <button
                   type="submit"
-                  disabled={!newMessageText.trim() || isSending}
+                  disabled={(!newMessageText.trim() && !selectedFile) || isSending}
                   className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white px-5 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 flex items-center justify-center shadow-xs cursor-pointer shrink-0"
                 >
-                  <Send className="w-4 h-4" />
+                  {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </form>
             </>
