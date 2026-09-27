@@ -8,11 +8,12 @@ import {
   Mail, 
   Hash, 
   Bell, 
-   
+  Trash2,
   Check, 
-  AlertCircle 
+  AlertCircle,
+  Eye
 } from 'lucide-react';
-import {  databases, account, storage, appwriteConfig, client } from '../../appwrite/Client';
+import { databases, account, storage, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
 import AdminHeader from '../../Components/AdminHeader';
 
@@ -31,8 +32,10 @@ export default function StudentSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [deletingAvatar, setDeletingAvatar] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showImageViewer, setShowImageViewer] = useState(false);
 
   const [currentAppUserId, setCurrentAppUserId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -44,7 +47,6 @@ export default function StudentSettings() {
   // Preferences toggles
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [soundAlerts, setSoundAlerts] = useState(true);
-
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,7 +61,6 @@ export default function StudentSettings() {
       const authUser = await account.get();
       if (!authUser?.$id) return;
 
-      // Query the custom user collection by userId
       const userDocs = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.userCollectionId,
@@ -75,7 +76,6 @@ export default function StudentSettings() {
         setRole(doc.role || 'student');
         setAvatarUrl(doc.avatarUrl || '');
       } else {
-        // Fallback if document uses auth user ID directly as document ID
         try {
           const doc = await databases.getDocument(
             appwriteConfig.databaseId,
@@ -117,17 +117,14 @@ export default function StudentSettings() {
     setSuccessMessage('');
 
     try {
-      // 1. Upload file to Appwrite Storage bucket
       const uploadedFile = await storage.createFile(
         appwriteConfig.storageId,
         ID.unique(),
         file
       );
 
-      // 2. Get public preview/view URL
       const fileViewUrl = storage.getFileView(appwriteConfig.storageId, uploadedFile.$id).toString();
 
-      // 3. Update document in user collection
       await databases.updateDocument(
         appwriteConfig.databaseId,
         appwriteConfig.userCollectionId,
@@ -143,6 +140,50 @@ export default function StudentSettings() {
       setErrorMessage(error?.message || 'Failed to upload profile picture. Check storage permissions.');
     } finally {
       setUploadingAvatar(false);
+      // Reset target value so the same file can be chosen again if needed
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!currentAppUserId || !avatarUrl) return;
+
+    const confirmed = window.confirm('Are you sure you want to delete your profile picture?');
+    if (!confirmed) return;
+
+    setDeletingAvatar(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      // Attempt to extract the file ID from the Appwrite file view URL if possible to clean up storage bucket
+      // Format usually contains /storage/buckets/{bucketId}/files/{fileId}/view
+      const match = avatarUrl.match(/\/files\/([^\/]+)\//);
+      if (match && match[1]) {
+        const fileId = match[1];
+        try {
+          await storage.deleteFile(appwriteConfig.storageId, fileId);
+        } catch (storageErr) {
+          console.warn('Could not delete file from storage bucket directly (might be missing permissions or already deleted):', storageErr);
+        }
+      }
+
+      // Clear avatarUrl in the database document
+      await databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.userCollectionId,
+        currentAppUserId,
+        { avatarUrl: '' }
+      );
+
+      setAvatarUrl('');
+      setSuccessMessage('Profile picture removed successfully.');
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (error: any) {
+      console.error('Failed to delete profile picture:', error);
+      setErrorMessage(error?.message || 'Failed to delete profile picture.');
+    } finally {
+      setDeletingAvatar(false);
     }
   };
 
@@ -218,7 +259,7 @@ export default function StudentSettings() {
               ) : (
                 <User className="w-12 h-12 text-indigo-400 stroke-1" />
               )}
-              {uploadingAvatar && (
+              {(uploadingAvatar || deletingAvatar) && (
                 <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-white" />
                 </div>
@@ -228,12 +269,13 @@ export default function StudentSettings() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingAvatar}
-              title="Change profile picture"
+              disabled={uploadingAvatar || deletingAvatar}
+              title="Upload new profile picture"
               className="absolute bottom-0 right-0 p-2.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 shadow-md transition-all cursor-pointer disabled:opacity-50"
             >
               <Camera className="w-4 h-4" />
             </button>
+
             <input 
               type="file" 
               ref={fileInputRef} 
@@ -247,6 +289,29 @@ export default function StudentSettings() {
             <h3 className="text-sm font-semibold text-slate-800">{name || 'User Profile'}</h3>
             <p className="text-xs text-slate-400 font-medium capitalize">{role}</p>
           </div>
+
+          {/* Profile Picture Action Buttons (View & Delete) */}
+          {avatarUrl && (
+            <div className="flex items-center gap-2 w-full pt-1">
+              <button
+                type="button"
+                onClick={() => setShowImageViewer(true)}
+                className="flex-1 py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5 text-slate-500" />
+                View
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAvatar}
+                disabled={deletingAvatar || uploadingAvatar}
+                className="flex-1 py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-medium border border-rose-200/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                Delete
+              </button>
+            </div>
+          )}
 
           <div className="w-full pt-4 border-t border-slate-100 text-left space-y-2">
             <div className="flex items-center justify-between text-xs">
@@ -307,6 +372,7 @@ export default function StudentSettings() {
                       type="text"
                       value={campusId}
                       onChange={(e) => setCampusId(e.target.value)}
+                      disabled
                       placeholder="e.g. MTU/2024/1234"
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-9 pr-3.5 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
                     />
@@ -380,6 +446,33 @@ export default function StudentSettings() {
         </div>
 
       </div>
+
+      {/* Fullscreen Image Preview Modal */}
+      {showImageViewer && avatarUrl && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setShowImageViewer(false)}
+        >
+          <div 
+            className="relative max-w-lg w-full bg-white rounded-3xl p-4 overflow-hidden shadow-2xl flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex items-center justify-between pb-3 mb-2 border-b border-slate-100">
+              <h3 className="text-xs font-semibold text-slate-800">Profile Picture Preview</h3>
+              <button 
+                type="button"
+                onClick={() => setShowImageViewer(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold px-2 py-1 rounded-lg cursor-pointer"
+              >
+                ✕ Close
+              </button>
+            </div>
+            <div className="w-full max-h-[70vh] flex items-center justify-center overflow-hidden rounded-2xl bg-slate-950/5">
+              <img src={avatarUrl} alt="Fullscreen Profile" className="max-h-[60vh] object-contain rounded-xl" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
