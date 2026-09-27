@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileText, Upload, Trash2, Download, ArrowLeft, Loader2, Plus, Search, FileSpreadsheet, FileCode, File, X, Sparkles } from 'lucide-react';
+import { FileText, Upload, Trash2, Download, ArrowLeft, Loader2, Plus, Search, FileSpreadsheet, FileCode, File, X,  Ghost } from 'lucide-react';
 import Header from '../../Components/Header';
 import { databases, storage, appwriteConfig, account } from '../../appwrite/Client';
 import { ID, Query } from 'appwrite';
@@ -269,7 +269,7 @@ const CourseDetail = () => {
       ) : (
         <div className="text-center py-20 rounded-[2.5rem] bg-white/40 border border-dashed border-slate-200/80 backdrop-blur-sm">
           <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <Sparkles size={24} />
+            <Ghost size={24} />
           </div>
           <h3 className="text-sm font-bold text-slate-900 mb-1">
             {searchTerm ? `No materials found matching "${searchTerm}"` : "No course materials uploaded yet"}
