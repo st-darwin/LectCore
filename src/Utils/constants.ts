@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon, GraduationCap } from 'lucide-react';
 
 export const LecturerNavItems = [
   {
@@ -71,6 +71,11 @@ export const StudentNavItems = [
     path: "/student/chat",
     icon :  MessagesSquare
 
+  },
+  {
+    label : "Grades",
+    path: "/student/grades",
+    icon :  GraduationCap,
   },
 
   {

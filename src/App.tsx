@@ -39,6 +39,7 @@ import Settings from "./Sections/Admin/Settings";
 import Log from "./Sections/Student/Log"
 import Chat from "./Sections/Student/Chat";
 import StudentSettings from "./Sections/Student/Settings";
+import ViewGrades from "./Sections/Student/ViewGrades";
 
 
 const router = createBrowserRouter(
@@ -83,6 +84,8 @@ const router = createBrowserRouter(
         <Route path="assignments" element={<AssignmentView />} />
         <Route path="assignments/create" element={<CreateAssignment />} />
         <Route path="submissions/:assignmentId" element={<SubmissionsView />} />
+        <Route path="chat" element={<Chat/>} />
+
 
       </Route>
 
@@ -98,6 +101,7 @@ const router = createBrowserRouter(
           <Route path="real-time-sync" element={<Log/>}  />
           <Route path="chat" element={<Chat/>} />
          <Route  path="settings" element={<StudentSettings/>} />
+         <Route path="grades" element={<ViewGrades/>} />
         {/* Once you build student pages, add them here like this: */}
         {/* <Route index element={<StudentDashboard />} /> */}
       </Route>
