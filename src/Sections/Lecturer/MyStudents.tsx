@@ -301,11 +301,11 @@ const MyStudents = () => {
             >
               <div className="space-y-3.5">
                 <div className="flex items-start gap-3.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 border border-indigo-100 shadow-2xs">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-semibold text-xs shrink-0 border border-indigo-100 shadow-2xs">
                     {student.name ? student.name.charAt(0).toUpperCase() : 'S'}
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-slate-900 truncate">{student.name}</h4>
+                    <h4 className="text-xs font-semibold text-slate-900 truncate">{student.name}</h4>
                     <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 truncate">
                       <Mail size={12} className="shrink-0" />
                       <span className="truncate">{student.email}</span>

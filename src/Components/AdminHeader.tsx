@@ -53,12 +53,12 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         
         <div className="space-y-2 min-w-0">
           {/* Admin Context Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50/80 border border-indigo-100 text-indigo-600 text-[11px] font-bold tracking-wider uppercase">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50/80 border border-indigo-100 text-indigo-600 text-[11px] font-semibold tracking-wider uppercase">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>{badgeText}</span>
           </div>
 
-          <h1 className="text-slate-900 tracking-tight font-black text-2xl sm:text-3xl md:text-4xl leading-tight">
+          <h1 className="text-slate-900 font-semibold tracking-tight font-black text-2xl sm:text-3xl md:text-4xl leading-tight">
             {title}
           </h1>
 

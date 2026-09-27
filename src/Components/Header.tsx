@@ -37,7 +37,7 @@ const Header: React.FC<HeaderProps> = ({ title, description, ctaText, ctaUrl, ic
           </div>
         )}
         <div className="space-y-1.5 min-w-0">
-          <h1 className="text-slate-900 tracking-tight font-extrabold text-2xl sm:text-3xl md:text-4xl leading-tight">
+          <h1 className="text-slate-900 tracking-tight font-semibold text-2xl sm:text-3xl md:text-4xl leading-tight">
             {title}
           </h1>
 

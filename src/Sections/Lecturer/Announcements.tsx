@@ -222,7 +222,7 @@ const Announcements = () => {
                     </span>
                   </div>
 
-                  <h4 className="text-sm font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
+                  <h4 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
                     {item.title}
                   </h4>
                   
