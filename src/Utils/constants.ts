@@ -31,6 +31,11 @@ export const LecturerNavItems = [
     path: "/lecturer/chat",
     icon :  MessagesSquare
 
+  },
+    {
+    label : "Settings",
+    path: "/lecturer/settings",
+    icon : Settings2Icon
   }
 ];
 
@@ -122,4 +127,10 @@ export const AdminNavItems = [
     icon :  MessagesSquare
 
   },
+    {
+    label : "Settings",
+    path: "/admin/settings",
+    icon : Settings2Icon
+  }
+
 ];

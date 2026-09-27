@@ -68,6 +68,10 @@ const router = createBrowserRouter(
         <Route path="assignments" element={<ViewAssignments/>}  />
         <Route path="logs" element={<SysLog/>} />
         <Route path="settings" element={<Settings/>} />
+        <Route path="chat" element={<Chat/>} />
+        <Route  path="settings" element={<StudentSettings/>} />
+
+        
 
 
       </Route>
@@ -85,6 +89,7 @@ const router = createBrowserRouter(
         <Route path="assignments/create" element={<CreateAssignment />} />
         <Route path="submissions/:assignmentId" element={<SubmissionsView />} />
         <Route path="chat" element={<Chat/>} />
+        <Route  path="settings" element={<StudentSettings/>} />
 
 
       </Route>
