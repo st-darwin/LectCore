@@ -209,7 +209,7 @@ const StudentDashboard = () => {
               <span>Academic Portal • Undergraduate Session</span>
             </div>
             <h1 className="text-xl sm:text-2xl md:text-3xl tracking-tight text-slate-900 font-semibold">
-              Welcome back, {userName} ✨
+              Welcome back, {userName} 👋
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 max-w-lg leading-relaxed">
               Your academic command center is synchronized. Track your active courses, assignments, and study schedule below.

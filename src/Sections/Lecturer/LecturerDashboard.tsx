@@ -109,7 +109,7 @@ const LecturerDashboard = () => {
 
             <div className="space-y-1">
               <h1 className="text-xl sm:text-2xl md:text-3xl tracking-tight text-slate-900 font-semibold">
-                Welcome back, {lecturerName} ✨
+                Welcome back, {lecturerName} 👋
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 max-w-xl leading-relaxed">
                 Streamline your course delivery, publish real-time announcements, and empower student academic progression from your centralized faculty control center.
