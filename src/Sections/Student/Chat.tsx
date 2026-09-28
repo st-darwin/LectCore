@@ -1167,7 +1167,7 @@ export default function Chat() {
                 <button
                   type="submit"
                   disabled={(!newMessageText.trim() && !selectedFile) || isSending}
-                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white px-5 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 flex items-center justify-center shadow-xs cursor-pointer shrink-0"
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white px-3 py-3 rounded-full text-xs font-semibold transition-all duration-200 flex items-center justify-center shadow-xs cursor-pointer shrink-0"
                 >
                   {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>

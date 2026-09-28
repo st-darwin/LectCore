@@ -128,8 +128,8 @@ export const AdminNavItems = [
 
   },
     {
-    label : "Settings",
-    path: "/admin/settings",
+    label : "Profile Settings",
+    path: "/admin/profile",
     icon : Settings2Icon
   }
 

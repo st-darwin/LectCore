@@ -69,7 +69,7 @@ const router = createBrowserRouter(
         <Route path="logs" element={<SysLog/>} />
         <Route path="settings" element={<Settings/>} />
         <Route path="chat" element={<Chat/>} />
-        <Route  path="settings" element={<StudentSettings/>} />
+        <Route  path="profile" element={<StudentSettings/>} />
 
         
 
