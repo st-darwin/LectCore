@@ -40,6 +40,7 @@ import Log from "./Sections/Student/Log"
 import Chat from "./Sections/Student/Chat";
 import StudentSettings from "./Sections/Student/Settings";
 import ViewGrades from "./Sections/Student/ViewGrades";
+import ViewAnalytics from "./Sections/Lecturer/ViewAnalytics";
 
 
 const router = createBrowserRouter(
@@ -90,6 +91,7 @@ const router = createBrowserRouter(
         <Route path="submissions/:assignmentId" element={<SubmissionsView />} />
         <Route path="chat" element={<Chat/>} />
         <Route  path="settings" element={<StudentSettings/>} />
+        <Route  path="analysis"  element={<ViewAnalytics/>}/>
 
 
       </Route>
