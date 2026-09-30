@@ -1,6 +1,6 @@
 import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon, GraduationCap, ChartAreaIcon } from 'lucide-react';
 
-
+// nav items for the lecturer
 export const LecturerNavItems = [
   {
     label: 'Dashboard',
