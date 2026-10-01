@@ -54,6 +54,56 @@ const CreateAssignment = () => {
     }
   };
 
+  // Client-side trigger helper to fan out notifications to enrolled students
+  const sendCourseNotificationToStudents = async ({
+    courseId,
+    title,
+    message,
+    type = 'ASSIGNMENT',
+    relatedId,
+  }: {
+    courseId: string;
+    title: string;
+    message: string;
+    type?: string;
+    relatedId?: string;
+  }) => {
+    try {
+      // 1. Fetch students enrolled in this course
+      const enrollments = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.enrollmentsId,
+        [Query.equal('courseId', courseId)]
+      );
+
+      if (enrollments.documents.length === 0) return;
+
+      // 2. Create notification records for each student in parallel
+      const notificationPromises = enrollments.documents.map((enrollment) => {
+        const studentId = enrollment.studentId;
+        
+        return databases.createDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.notificationsId,
+          ID.unique(),
+          {
+            userId: studentId,
+            title,
+            message,
+            type,
+            relatedId,
+            isRead: false,
+          }
+        );
+      });
+
+      await Promise.all(notificationPromises);
+      console.log(`Successfully dispatched assignment notifications to ${enrollments.documents.length} students.`);
+    } catch (error) {
+      console.error("Failed to trigger student notifications:", error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!courseId || !title || !description || !dueDate || !totalMarks) {
@@ -67,7 +117,8 @@ const CreateAssignment = () => {
       const user = await account.get();
       if (!user) return;
 
-      await databases.createDocument(
+      // 1. Create the assignment document
+      const response = await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.assignmentId || 'assignments',
         ID.unique(),
@@ -80,6 +131,15 @@ const CreateAssignment = () => {
           totalMarks: parseInt(totalMarks, 10),
         }
       );
+
+      // 2. Fire notifications to all students enrolled in this course
+      await sendCourseNotificationToStudents({
+        courseId,
+        title: `New Assignment: ${title}`,
+        message: `Due: ${new Date(dueDate).toLocaleString()} (${totalMarks} Marks)`,
+        type: 'ASSIGNMENT',
+        relatedId: response.$id,
+      });
 
       // Navigate back or reset
       navigate(-1);

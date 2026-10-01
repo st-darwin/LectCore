@@ -47,7 +47,6 @@ const Announcements = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Fetch all courses from both possible collection IDs and lecturer announcements in parallel
       const [coursesRes, altCoursesRes, announcementsRes] = await Promise.all([
         databases.listDocuments(
           appwriteConfig.databaseId,
@@ -56,7 +55,7 @@ const Announcements = () => {
         ).catch(() => ({ documents: [] })),
         databases.listDocuments(
           appwriteConfig.databaseId,
-          appwriteConfig.coursesId || 'course',
+          appwriteConfig.courseId || 'course',
           [Query.orderDesc('$createdAt')]
         ).catch(() => ({ documents: [] })),
         databases.listDocuments(
@@ -71,7 +70,6 @@ const Announcements = () => {
         ...(altCoursesRes.documents || [])
       ] as unknown as Course[];
 
-      // Deduplicate courses by $id
       const uniqueCourses = Array.from(
         new Map(combinedCourses.map(c => [c.$id, c])).values()
       );
@@ -89,13 +87,65 @@ const Announcements = () => {
     }
   };
 
+  // Client-side trigger helper to fan out notifications to enrolled students
+  const sendCourseNotificationToStudents = async ({
+    courseId,
+    title,
+    message,
+    type = 'ANNOUNCEMENT',
+    relatedId,
+  }: {
+    courseId: string;
+    title: string;
+    message: string;
+    type?: string;
+    relatedId?: string;
+  }) => {
+    try {
+      // 1. Fetch students enrolled in this course
+      const enrollments = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.enrollmentsId,
+        [Query.equal('courseId', courseId)]
+      );
+
+      if (enrollments.documents.length === 0) return;
+
+      // 2. Create notification records for each student in parallel
+      const notificationPromises = enrollments.documents.map((enrollment) => {
+        const studentId = enrollment.studentId; // Make sure this matches your schema attribute name
+        
+        return databases.createDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.notificationsId,
+          ID.unique(),
+          {
+            userId: studentId,
+            title,
+            message,
+            type,
+            relatedId,
+            isRead: false,
+          }
+        );
+      });
+
+      await Promise.all(notificationPromises);
+      console.log(`Successfully dispatched notifications to ${enrollments.documents.length} students.`);
+    } catch (error) {
+      console.error("Failed to trigger student notifications:", error);
+    }
+  };
+
   const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim() || !courseId) return;
 
     try {
       setSubmitting(true);
-      await databases.createDocument(
+      
+      // 1. Create the announcement document
+      const response = await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.announcementsId,
         ID.unique(),
@@ -108,6 +158,15 @@ const Announcements = () => {
         }
       );
 
+      // 2. Fire notifications to all students enrolled in this course
+      await sendCourseNotificationToStudents({
+        courseId,
+        title: `New Announcement: ${title.trim()}`,
+        message: content.trim(),
+        type: 'ANNOUNCEMENT',
+        relatedId: response.$id,
+      });
+
       setTitle('');
       setContent('');
       setPriority('normal');
@@ -115,12 +174,12 @@ const Announcements = () => {
       setIsModalOpen(false);
       
       // Refresh announcements list
-      const response = await databases.listDocuments(
+      const announcementsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.announcementsId,
         [Query.equal('lecturerId', user.$id), Query.orderDesc('$createdAt')]
       );
-      setAnnouncements(response.documents as unknown as Announcement[]);
+      setAnnouncements(announcementsRes.documents as unknown as Announcement[]);
     } catch (err: any) {
       console.error("Failed to create announcement:", err);
       alert(err?.message || "Failed to post announcement.");

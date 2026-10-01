@@ -3,13 +3,37 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Menu, X } from 'lucide-react';
 import { auth } from '../appwrite/Auth';
+import { account } from '../appwrite/Client';
 import { StudentNavItems } from '../Utils/constants';
-import logo from "../assets/icons/logo.png"
+import logo from "../assets/icons/logo.png";
+import { useNotifications } from '../hooks/useNotifications';
+import { NotificationBell } from '../Components/NotificationBell';
+import { NotificationDropdown } from '../Components/NotificationDropdown';
+import { notificationService } from '../services/notificationService';
+import { type Notification } from '../types/notification';
 
 export default function StudentNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // State for user ID and notification dropdown visibility
+  const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Retrieve current user on mount using account.get()
+  useEffect(() => {
+    account.get()
+      .then((user) => {
+        setUserId(user.$id);
+      })
+      .catch((err) => {
+        console.error('Failed to get current user session:', err);
+      });
+  }, []);
+
+  // Use your real-time notifications hook
+  const { notifications, unreadCount, setNotifications } = useNotifications(userId);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -36,12 +60,23 @@ export default function StudentNav() {
     setMobileMenuOpen(false);
   };
 
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.isRead) {
+      await notificationService.markAsRead(notification.$id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.$id === notification.$id ? { ...n, isRead: true } : n))
+      );
+    }
+    setIsDropdownOpen(false);
+  };
+
   return (
     <>
+      {/* Mobile Header */}
       <header className="md:hidden fixed top-3 inset-x-3 z-50 bg-white/85 backdrop-blur-xl border border-slate-200/60 rounded-2xl px-4 py-2.5 flex items-center justify-between shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-10 h-10 rounded-xl  text-indigo-600 flex items-center justify-center font-semibold text-xs  shrink-0">
-          <img src={logo} className='rounded-xl' alt="" />
+          <div className="w-10 h-10 rounded-xl text-indigo-600 flex items-center justify-center font-semibold text-xs shrink-0">
+            <img src={logo} className='rounded-xl' alt="" />
           </div>
           <div className="min-w-0">
             <span className="font-semibold text-slate-800 tracking-tight block text-xs truncate">LectCore</span>
@@ -49,19 +84,28 @@ export default function StudentNav() {
           </div>
         </div>
 
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100/80 text-slate-600 transition-all cursor-pointer active:scale-95 shrink-0"
-          aria-label="Toggle Menu"
-          aria-expanded={mobileMenuOpen}
-        >
-          {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Notification Bell */}
+          <NotificationBell
+            unreadCount={unreadCount}
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          />
+
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100/80 text-slate-600 transition-all cursor-pointer active:scale-95 shrink-0"
+            aria-label="Toggle Menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </div>
       </header>
 
+      {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-xs flex flex-col pt-20 px-3 pb-6 animate-in fade-in duration-200">
-          <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/80 rounded-3xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.08)] flex flex-col max-h-[calc(100vh-6rem)] overflow-y-auto">
+          <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/85 rounded-3xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.08)] flex flex-col max-h-[calc(100vh-6rem)] overflow-y-auto">
             <nav className="space-y-1.5 flex-1">
               {StudentNavItems.map((item) => {
                 const Icon = item.icon;
@@ -99,16 +143,25 @@ export default function StudentNav() {
         </div>
       )}
 
+      {/* Desktop Sidebar */}
       <aside className="hidden md:flex fixed left-4 top-4 bottom-4 w-72 bg-white/70 backdrop-blur-2xl border border-slate-200/60 rounded-3xl flex-col justify-between p-6 text-slate-600 shadow-[0_4px_30px_rgba(0,0,0,0.02)] z-20 overflow-y-auto">
         <div>
-          <div className="flex items-center gap-3.5 mb-8 px-2">
-            <div className="w-10 h-10 rounded-2xl text-indigo-600 flex items-center justify-center font-semibold text-sm  shadow-2xs">
-              <img src={logo} className='rounded-xl' alt="" />
+          <div className="flex items-center justify-between mb-8 px-2">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl text-indigo-600 flex items-center justify-center font-semibold text-sm shadow-2xs">
+                <img src={logo} className='rounded-xl' alt="" />
+              </div>
+              <div>
+                <span className="font-semibold text-slate-800 tracking-tight block text-sm">LectCore</span>
+                <span className="text-[10px] text-indigo-600 font-medium tracking-wide">Student Portal</span>
+              </div>
             </div>
-            <div>
-              <span className="font-semibold text-slate-800 tracking-tight block text-sm">LectCore</span>
-              <span className="text-[10px] text-indigo-600 font-medium tracking-wide">Student Portal</span>
-            </div>
+
+            {/* Desktop Notification Bell */}
+            <NotificationBell
+              unreadCount={unreadCount}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            />
           </div>
 
           <nav className="space-y-1.5">
@@ -146,6 +199,15 @@ export default function StudentNav() {
           </button>
         </div>
       </aside>
+
+      {/* Global Root-Level Notification Dropdown (Escapes Sidebar Width / Overflow) */}
+      <NotificationDropdown
+        notifications={notifications}
+        isOpen={isDropdownOpen}
+        onClose={() => setIsDropdownOpen(false)}
+        onNotificationClick={handleNotificationClick}
+        onRefresh={() => {}}
+      />
     </>
   );
 }

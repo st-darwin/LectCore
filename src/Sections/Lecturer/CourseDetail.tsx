@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileText, Upload, Trash2, Download, ArrowLeft, Loader2, Plus, Search, FileSpreadsheet, FileCode, File, X,  Ghost } from 'lucide-react';
+import { FileText, Upload, Trash2, Download, ArrowLeft, Loader2, Plus, Search, FileSpreadsheet, FileCode, File, X, Ghost } from 'lucide-react';
 import Header from '../../Components/Header';
 import { databases, storage, appwriteConfig, account } from '../../appwrite/Client';
 import { ID, Query } from 'appwrite';
@@ -78,9 +78,59 @@ const CourseDetail = () => {
     }
   };
 
+  // Client-side trigger helper to fan out notifications to enrolled students
+  const sendCourseNotificationToStudents = async ({
+    courseId,
+    title,
+    message,
+    type = 'MATERIAL',
+    relatedId,
+  }: {
+    courseId: string;
+    title: string;
+    message: string;
+    type?: string;
+    relatedId?: string;
+  }) => {
+    try {
+      // 1. Fetch students enrolled in this course
+      const enrollments = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.enrollmentsId,
+        [Query.equal('courseId', courseId)]
+      );
+
+      if (enrollments.documents.length === 0) return;
+
+      // 2. Create notification records for each student in parallel
+      const notificationPromises = enrollments.documents.map((enrollment) => {
+        const studentId = enrollment.studentId;
+        
+        return databases.createDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.notificationsId,
+          ID.unique(),
+          {
+            userId: studentId,
+            title,
+            message,
+            type,
+            relatedId,
+            isRead: false,
+          }
+        );
+      });
+
+      await Promise.all(notificationPromises);
+      console.log(`Successfully dispatched material notifications to ${enrollments.documents.length} students.`);
+    } catch (error) {
+      console.error("Failed to trigger student notifications:", error);
+    }
+  };
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !title.trim()) return;
+    if (!file || !title.trim() || !id) return;
 
     try {
       setUploading(true);
@@ -101,7 +151,7 @@ const CourseDetail = () => {
       ).toString();
 
       // 3. Save document reference in course_materials collection
-      await databases.createDocument(
+      const response = await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.courseMaterialsId,
         ID.unique(),
@@ -114,6 +164,15 @@ const CourseDetail = () => {
           bucketId: appwriteConfig.storageId,
         }
       );
+
+      // 4. Fire notifications to all students enrolled in this course
+      await sendCourseNotificationToStudents({
+        courseId: id,
+        title: `New Material: ${course ? course.courseCode : 'Course'}`,
+        message: `New resource uploaded: ${title.trim()}`,
+        type: 'MATERIAL',
+        relatedId: response.$id,
+      });
 
       // Reset form & refresh
       setTitle('');
