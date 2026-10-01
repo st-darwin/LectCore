@@ -47,7 +47,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     if (type === 'ANNOUNCEMENT' || type === 'ANNOUNCEMENTS') {
       navigate('/student/announcements');
     } else if (type === 'ASSIGNMENT' || type === 'ASSIGNMENTS') {
-      navigate(relatedId ? `/student/assignments/${relatedId}` : '/student/assignments');
+      navigate(relatedId ? `/student/assignment/${relatedId}` : '/student/assignments');
     } else if (type === 'COURSE' || type === 'MATERIAL' || type === 'MATERIALS') {
       navigate(relatedId ? `/student/courses/${relatedId}` : '/student/courses');
     }
