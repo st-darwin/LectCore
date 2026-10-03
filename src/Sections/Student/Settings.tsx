@@ -385,6 +385,7 @@ export default function StudentSettings() {
                     <Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input 
                       type="text"
+                      disabled={role == 'student'}
                       value={campusId}
                       onChange={(e) => setCampusId(e.target.value)}
                       placeholder="e.g. MTU/2024/1234"

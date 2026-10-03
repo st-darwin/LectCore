@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon, GraduationCap, ChartAreaIcon, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon, GraduationCap, ChartAreaIcon, BellOff } from 'lucide-react';
 
 // nav items for the lecturer
 export const LecturerNavItems = [
@@ -94,7 +94,8 @@ export const StudentNavItems = [
   {
     label : "Notifications",
     path: "/student/notifications",
-    icon :  AlertCircle
+    icon :  BellOff,
+      
   },
 
 
