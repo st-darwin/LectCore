@@ -22,7 +22,9 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   const navigate = useNavigate();
   if (!isOpen) return null;
 
-  const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.$id);
+  // Filter to show ONLY unread notifications in the dropdown
+  const unreadNotifications = notifications.filter((n) => !n.isRead);
+  const unreadIds = unreadNotifications.map((n) => n.$id);
 
   const handleMarkAllRead = async () => {
     if (unreadIds.length === 0) return;
@@ -31,7 +33,6 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   };
 
   const handleItemClick = async (notification: Notification) => {
-    // Mark as read if unread
     if (!notification.isRead) {
       await notificationService.markAllAsRead([notification.$id]);
       onRefresh();
@@ -40,7 +41,6 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     onNotificationClick(notification);
     onClose();
 
-    // Smart routing based on notification type
     const type = notification.type?.toUpperCase();
     const relatedId = notification.relatedId;
 
@@ -55,13 +55,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
   return (
     <>
-      {/* Transparent overlay covering the whole screen to catch outside clicks */}
-      <div 
-        className="fixed inset-0 z-40 bg-transparent"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-40 bg-transparent" onClick={onClose} />
 
-      {/* Floating overlay card positioned to the left (next to the sidebar on desktop) */}
       <div className="fixed top-20 inset-x-4 mx-auto max-w-md sm:mx-0 sm:left-60 sm:top-7 sm:inset-x-auto sm:w-[380px] z-50 rounded-[1.75rem] bg-white border border-slate-200/90 shadow-[0_25px_60px_rgba(0,0,0,0.18)] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/80">
@@ -70,7 +65,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
               <Bell size={14} />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-slate-900 tracking-tight">Notifications</h3>
+              <h3 className="text-xs font-bold text-slate-900 tracking-tight">New Notifications</h3>
             </div>
           </div>
           
@@ -93,9 +88,9 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           </div>
         </div>
 
-        {/* Notifications List */}
+        {/* Unread Notifications List */}
         <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
-          {notifications.length === 0 ? (
+          {unreadNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-slate-400 px-4 text-center">
               <div className="w-11 h-11 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mb-3 shadow-xs">
                 <BellOff size={18} />
@@ -104,18 +99,14 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
               <p className="text-[11px] text-slate-400">No new notifications right now.</p>
             </div>
           ) : (
-            notifications.map((notification) => (
+            unreadNotifications.map((notification) => (
               <div
                 key={notification.$id}
                 onClick={() => handleItemClick(notification)}
-                className={`p-4 transition-all cursor-pointer hover:bg-slate-50 relative group ${
-                  !notification.isRead ? 'bg-indigo-50/40' : ''
-                }`}
+                className="p-4 transition-all cursor-pointer hover:bg-slate-50 relative group bg-indigo-50/40"
               >
-                {!notification.isRead && (
-                  <span className="absolute top-4 left-3 w-2 h-2 rounded-full bg-indigo-600" />
-                )}
-                <div className={!notification.isRead ? 'pl-3' : 'pl-1'}>
+                <span className="absolute top-4 left-3 w-2 h-2 rounded-full bg-indigo-600" />
+                <div className="pl-3">
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
                       {notification.title}

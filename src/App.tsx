@@ -41,6 +41,7 @@ import Chat from "./Sections/Student/Chat";
 import StudentSettings from "./Sections/Student/Settings";
 import ViewGrades from "./Sections/Student/ViewGrades";
 import ViewAnalytics from "./Sections/Lecturer/ViewAnalytics";
+import NotifcationView from "./Sections/Student/NotifcationView";
 
 
 const router = createBrowserRouter(
@@ -109,6 +110,7 @@ const router = createBrowserRouter(
           <Route path="chat" element={<Chat/>} />
          <Route  path="settings" element={<StudentSettings/>} />
          <Route path="grades" element={<ViewGrades/>} />
+         <Route path="notifications" element={<NotifcationView />} />
         {/* Once you build student pages, add them here like this: */}
         {/* <Route index element={<StudentDashboard />} /> */}
       </Route>
