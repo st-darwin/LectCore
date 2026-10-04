@@ -4,8 +4,8 @@ import { Query } from 'appwrite';
 import { databases, account, appwriteConfig } from '../../appwrite/Client';
 import { type Notification } from '../../types/notification';
 import { notificationService } from '../../services/notificationService';
-import AdminHeader  from '../../Components/AdminHeader';
-import { CheckCheck, ExternalLink, BellOff, Filter, Loader2 } from 'lucide-react';
+import AdminHeader from '../../Components/AdminHeader';
+import { CheckCheck, ExternalLink, BellOff, Filter, Loader2, Bell } from 'lucide-react';
 
 const NotificationView: React.FC = () => {
   const navigate = useNavigate();
@@ -75,20 +75,22 @@ const NotificationView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-16">
-      {/* Reusable Admin/Portal Header */}
-     
+      {/* Outer Container with full responsive padding */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 space-y-6">
+        
+        {/* Header */}
+        <AdminHeader 
+          title="Notifications Center" 
+          description="Stay updated with your latest notifications and alerts."
+          badgeText="View Updates"
+          icon={<Bell size={20} className="text-indigo-600" />}
+        />
 
-      <div className="max-w-4xl mx-auto px-6 mt-6 space-y-6">
-         <AdminHeader 
-        title="Notifications Center" 
-        description="Stay updated with your latest notifications and alerts."
-        badgeText="View Updates"
-        icon={<BellOff size={20} className="text-indigo-600" />}
-      />
         {/* Action Controls & Filter Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-slate-100 shadow-xs">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-            <div className="flex items-center gap-1.5 text-slate-400 mr-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-slate-100 shadow-xs">
+          {/* Filters */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            <div className="flex items-center gap-1 text-slate-400 mr-1 shrink-0">
               <Filter size={14} />
               <span className="text-xs font-medium">Filter:</span>
             </div>
@@ -96,7 +98,7 @@ const NotificationView: React.FC = () => {
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-xl capitalize transition-all cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-xl capitalize transition-all cursor-pointer shrink-0 ${
                   filter === tab
                     ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
                     : 'bg-slate-50 text-slate-600 hover:bg-slate-100/80'
@@ -107,15 +109,16 @@ const NotificationView: React.FC = () => {
             ))}
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-4">
-            <span className="text-xs text-slate-400 font-medium">
+          {/* Counters & Bulk Actions */}
+          <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <span className="text-xs text-slate-400 font-medium shrink-0">
               Showing {filteredNotifications.length} items
             </span>
 
             {unreadIds.length > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 transition-colors rounded-xl cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 transition-colors rounded-xl cursor-pointer shrink-0"
               >
                 <CheckCheck size={14} />
                 <span>Mark all read</span>
@@ -133,7 +136,7 @@ const NotificationView: React.FC = () => {
         ) : (
           <div className="space-y-3">
             {filteredNotifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white/60 rounded-3xl border border-slate-100 text-slate-400 shadow-2xs">
+              <div className="flex flex-col items-center justify-center py-20 bg-white/60 rounded-3xl border border-slate-100 text-slate-400 shadow-2xs px-4 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50/50 text-indigo-400 flex items-center justify-center mb-3">
                   <BellOff size={20} />
                 </div>
@@ -145,7 +148,7 @@ const NotificationView: React.FC = () => {
                 <div
                   key={notification.$id}
                   onClick={() => handleItemClick(notification)}
-                  className={`p-5 bg-white rounded-2xl border transition-all duration-200 cursor-pointer hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-500/5 relative group ${
+                  className={`p-4 sm:p-5 bg-white rounded-2xl border transition-all duration-200 cursor-pointer hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-500/5 relative group ${
                     !notification.isRead 
                       ? 'border-indigo-100 bg-indigo-50/30' 
                       : 'border-slate-100/80 shadow-2xs'
@@ -155,16 +158,16 @@ const NotificationView: React.FC = () => {
                     <span className="absolute top-5 left-3 w-2 h-2 rounded-full bg-indigo-600 ring-4 ring-indigo-50" />
                   )}
                   <div className={!notification.isRead ? 'pl-3' : 'pl-1'}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xs sm:text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
                           {notification.title}
                         </h3>
                         <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-100/80 text-slate-500 rounded-lg uppercase tracking-wider">
                           {notification.type || 'Alert'}
                         </span>
                       </div>
-                      <span className="text-[11px] font-medium text-slate-400 shrink-0 ml-2">
+                      <span className="text-[11px] font-medium text-slate-400 shrink-0">
                         {new Date(notification.$createdAt).toLocaleDateString([], {
                           month: 'short',
                           day: 'numeric',
