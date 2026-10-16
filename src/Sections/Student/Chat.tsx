@@ -17,7 +17,13 @@ import {
   Reply,
   X,
   Paperclip,
-  FileText
+  FileText,
+  Plus,
+  Briefcase,
+  Check,
+  Mic,
+  UserPlus,
+  LogOut
 } from 'lucide-react';
 import { client, databases, account, storage, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
@@ -26,7 +32,11 @@ import AdminHeader from '../../Components/AdminHeader';
 export interface Thread {
   $id: string;
   participantIds: string[];
-  type?: string;
+  type?: string;          // 'direct' | 'group'
+  name?: string;          // Group name if type === 'group'
+  courseCode?: string;    // Course code if type === 'group'
+  adminId?: string;       // Admin user ID for groups
+  hiddenForIds?: string[];// Users who cleared/deleted this thread view for themselves
   lastMessage?: string;
   lastMessageAt?: string;
 }
@@ -67,7 +77,8 @@ export default function Chat() {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
    
   const [sidebarTab, setSidebarTab] = useState<'chats' | 'lecturers' | 'students'>('chats');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [sidebarSearchQuery, setSidebarSearchQuery] = useState('');
+  const [directorySearchQuery, setDirectorySearchQuery] = useState('');
 
   const [isLoadingThreads, setIsLoadingThreads] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -77,6 +88,27 @@ export default function Chat() {
   const [activeThreadMenuId, setActiveThreadMenuId] = useState<string | null>(null);
   const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
+  // Group Modals State & Member Search
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [groupNameInput, setGroupNameInput] = useState('');
+  const [groupCourseCodeInput, setGroupCourseCodeInput] = useState('');
+  const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState<string[]>([]);
+  const [createGroupSearchQuery, setCreateGroupSearchQuery] = useState('');
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+
+  // Add Member to Group Modal & Member Search
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [selectedUsersToAdd, setSelectedUsersToAdd] = useState<string[]>([]);
+  const [addMemberSearchQuery, setAddMemberSearchQuery] = useState('');
+  const [isAddingMembers, setIsAddingMembers] = useState(false);
+
+  // Voice Note Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerIntervalRef = useRef<any>(null);
    
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -94,7 +126,6 @@ export default function Chat() {
     isAtBottomRef.current = isAtBottom;
   }, [isAtBottom]);
 
-  // Helper function to reliably scroll to the very bottom
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
@@ -307,12 +338,27 @@ export default function Chat() {
         return;
       }
 
-      if (response.events.some(e => e.includes(`.collections.${appwriteConfig.threadsId}.documents.delete`))) {
-        const deletedThread = response.payload as unknown as Thread;
-        setThreads(prev => prev.filter(t => t.$id !== deletedThread.$id));
-        if (activeThreadRef.current?.$id === deletedThread.$id) {
-          setActiveThread(null);
-          setMessages([]);
+      if (response.events.some(e => e.includes(`.collections.${appwriteConfig.threadsId}.documents.update`))) {
+        const updatedThread = response.payload as unknown as Thread;
+        if (updatedThread.participantIds?.includes(currentUserId)) {
+          setThreads(prev => {
+            const index = prev.findIndex(t => t.$id === updatedThread.$id);
+            if (index !== -1) {
+              const copy = [...prev];
+              copy[index] = updatedThread;
+              return copy;
+            }
+            return [updatedThread, ...prev];
+          });
+          if (activeThreadRef.current?.$id === updatedThread.$id) {
+            setActiveThread(updatedThread);
+          }
+        } else {
+          setThreads(prev => prev.filter(t => t.$id !== updatedThread.$id));
+          if (activeThreadRef.current?.$id === updatedThread.$id) {
+            setActiveThread(null);
+            setMessages([]);
+          }
         }
         return;
       }
@@ -366,7 +412,10 @@ export default function Chat() {
 
         setThreads(prev => {
           const index = prev.findIndex(t => t.$id === payload.threadId);
-          if (index === -1) return prev;
+          if (index === -1) {
+            initChatData();
+            return prev;
+          }
           const updatedThread = { 
             ...prev[index], 
             lastMessage: payload.messageText || 'Attachment', 
@@ -396,15 +445,6 @@ export default function Chat() {
             userDocs.documents[0].$id,
             { lastSeen: new Date().toISOString() }
           );
-        } else {
-          try {
-            await databases.updateDocument(
-              appwriteConfig.databaseId,
-              appwriteConfig.userCollectionId,
-              currentUserId,
-              { lastSeen: new Date().toISOString() }
-            );
-          } catch (innerErr) {}
         }
       } catch (err) {}
     };
@@ -514,6 +554,7 @@ export default function Chat() {
     if (!currentUserId || targetAuthId === currentUserId) return;
 
     const existing = threads.find(t => 
+      t.type !== 'group' &&
       t.participantIds?.includes(currentUserId) && 
       t.participantIds?.includes(targetAuthId) &&
       t.participantIds?.length === 2
@@ -534,7 +575,7 @@ export default function Chat() {
           participantIds: [currentUserId, targetAuthId],
           type: 'direct',
           lastMessage: 'Started a conversation',
-          lastMessageAt: new Date().toISOString(),
+          lastMessageAt: new Date().toISOString()
         }
       );
 
@@ -544,6 +585,215 @@ export default function Chat() {
       setSidebarTab('chats');
     } catch (error) {
       console.error('Failed to create chat thread:', error);
+    }
+  };
+
+  const handleCreateProjectGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!groupNameInput.trim() || !currentUserId || isCreatingGroup) return;
+
+    setIsCreatingGroup(true);
+    try {
+      const allMembers = Array.from(new Set([currentUserId, ...selectedGroupMemberIds]));
+
+      const newGroupDoc = await databases.createDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.threadsId,
+        ID.unique(),
+        {
+          participantIds: allMembers,
+          type: 'group',
+          name: groupNameInput.trim(),
+          courseCode: groupCourseCodeInput.trim().toUpperCase() || 'PROJECT',
+          adminId: currentUserId,
+          lastMessage: 'Group created',
+          lastMessageAt: new Date().toISOString(),
+        }
+      );
+
+      const createdThread = newGroupDoc as unknown as Thread;
+      setThreads(prev => [createdThread, ...prev]);
+      setActiveThread(createdThread);
+      setSidebarTab('chats');
+
+      setIsGroupModalOpen(false);
+      setGroupNameInput('');
+      setGroupCourseCodeInput('');
+      setSelectedGroupMemberIds([]);
+      setCreateGroupSearchQuery('');
+    } catch (error) {
+      console.error('Failed to create project group:', error);
+    } finally {
+      setIsCreatingGroup(false);
+    }
+  };
+
+  const handleAddMembersToGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeThread || activeThread.type !== 'group' || selectedUsersToAdd.length === 0 || isAddingMembers) return;
+
+    setIsAddingMembers(true);
+    try {
+      const updatedParticipants = Array.from(new Set([...activeThread.participantIds, ...selectedUsersToAdd]));
+
+      const updatedDoc = await databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.threadsId,
+        activeThread.$id,
+        {
+          participantIds: updatedParticipants
+        }
+      );
+
+      const updatedThread = updatedDoc as unknown as Thread;
+      setActiveThread(updatedThread);
+      setThreads(prev => prev.map(t => t.$id === updatedThread.$id ? updatedThread : t));
+
+      setIsAddMemberModalOpen(false);
+      setSelectedUsersToAdd([]);
+      setAddMemberSearchQuery('');
+    } catch (error) {
+      console.error('Failed to add members to group:', error);
+    } finally {
+      setIsAddingMembers(false);
+    }
+  };
+
+  const handleExitGroup = async (e: React.MouseEvent, thread: Thread) => {
+    e.stopPropagation();
+    setActiveThreadMenuId(null);
+    if (!currentUserId || thread.type !== 'group') return;
+
+    try {
+      const updatedParticipants = thread.participantIds.filter(id => id !== currentUserId);
+
+      await databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.threadsId,
+        thread.$id,
+        {
+          participantIds: updatedParticipants
+        }
+      );
+
+      setThreads(prev => prev.filter(t => t.$id !== thread.$id));
+      if (activeThread?.$id === thread.$id) {
+        setActiveThread(null);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Failed to exit group:', error);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      audioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' });
+        await sendVoiceNoteMessage(audioFile);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Microphone access denied or not supported:', err);
+      alert('Could not access microphone. Please check your browser permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(timerIntervalRef.current);
+    }
+  };
+
+  const sendVoiceNoteMessage = async (audioFile: File) => {
+    if (!activeThread || !currentUserId || isSending) return;
+
+    setIsSending(true);
+    setUnreadBelowCount(0);
+    setIsAtBottom(true);
+    scrollToBottom('smooth');
+
+    const tempMessageId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      $id: tempMessageId,
+      threadId: activeThread.$id,
+      senderId: currentUserId,
+      messageText: 'Voice Note',
+      isRead: false,
+      fileUrl: URL.createObjectURL(audioFile),
+      $createdAt: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+
+    setTimeout(() => {
+      scrollToBottom('smooth');
+    }, 50);
+
+    try {
+      const uploadedFile = await storage.createFile(
+        appwriteConfig.storageId,
+        ID.unique(),
+        audioFile
+      );
+      const fileView = storage.getFileView(appwriteConfig.storageId, uploadedFile.$id);
+      const uploadedFileUrl = fileView.toString();
+
+      const createdMsg = await databases.createDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.messagesId,
+        ID.unique(),
+        {
+          threadId: activeThread.$id,
+          senderId: currentUserId,
+          messageText: 'Voice Note',
+          fileUrl: uploadedFileUrl,
+          isRead: false,
+        }
+      );
+
+      await databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.threadsId,
+        activeThread.$id,
+        {
+          lastMessage: 'Voice Note',
+          lastMessageAt: new Date().toISOString(),
+        }
+      );
+
+      setMessages(prev => prev.map(m => m.$id === tempMessageId ? (createdMsg as unknown as Message) : m));
+      
+      setTimeout(() => {
+        scrollToBottom('smooth');
+      }, 50);
+    } catch (error) {
+      console.error('Failed to send voice note:', error);
+      setMessages(prev => prev.filter(m => m.$id !== tempMessageId));
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -562,7 +812,6 @@ export default function Chat() {
     setUnreadBelowCount(0);
     setIsAtBottom(true);
 
-    // Scroll directly to the bottom right when sending a message
     scrollToBottom('smooth');
 
     const tempMessageId = `temp-${Date.now()}`;
@@ -579,7 +828,6 @@ export default function Chat() {
 
     setMessages(prev => [...prev, optimisticMessage]);
 
-    // Ensure scroll position snaps/smooths down after optimistic render update
     setTimeout(() => {
       scrollToBottom('smooth');
     }, 50);
@@ -626,7 +874,6 @@ export default function Chat() {
 
       setMessages(prev => prev.map(m => m.$id === tempMessageId ? (createdMsg as unknown as Message) : m));
       
-      // Scroll down once more when message is confirmed and saved successfully
       setTimeout(() => {
         scrollToBottom('smooth');
       }, 50);
@@ -638,26 +885,6 @@ export default function Chat() {
       setSelectedFile(fileToSend);
     } finally {
       setIsSending(false);
-    }
-  };
-
-  const handleDeleteThread = async (e: React.MouseEvent, threadId: string) => {
-    e.stopPropagation();
-    setActiveThreadMenuId(null);
-
-    try {
-      await databases.deleteDocument(
-        appwriteConfig.databaseId,
-        appwriteConfig.threadsId,
-        threadId
-      );
-      setThreads(prev => prev.filter(t => t.$id !== threadId));
-      if (activeThread?.$id === threadId) {
-        setActiveThread(null);
-        setMessages([]);
-      }
-    } catch (error) {
-      console.error('Failed to delete thread:', error);
     }
   };
 
@@ -675,10 +902,19 @@ export default function Chat() {
     }
   };
 
-  const getPeerDetails = (participantIds: string[] = []) => {
-    const peerAuthId = participantIds.find(id => id !== currentUserId);
+  const getPeerDetails = (thread: Thread) => {
+    if (thread.type === 'group') {
+      return { 
+        name: thread.name || 'Study Group', 
+        role: 'group' as const, 
+        email: thread.courseCode || 'Project', 
+        avatarUrl: '',
+        lastSeen: ''
+      };
+    }
+    const peerAuthId = thread.participantIds?.find(id => id !== currentUserId);
     const peerUser = allUsers.find(u => (u.userId === peerAuthId || u.$id === peerAuthId));
-    return peerUser || { name: 'Unknown User', role: 'student', email: '', avatarUrl: '', lastSeen: '' };
+    return peerUser || { name: 'Unknown User', role: 'student' as const, email: '', avatarUrl: '', lastSeen: '' };
   };
 
   const formatPresence = (lastSeenString?: string) => {
@@ -708,6 +944,13 @@ export default function Chat() {
           Lecturer
         </span>
       );
+    } else if (normalizedRole === 'group') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+          <Briefcase className="w-3 h-3" />
+          Group
+        </span>
+      );
     } else if (normalizedRole === 'admin') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-600 border border-amber-100 shrink-0">
@@ -725,43 +968,49 @@ export default function Chat() {
     }
   };
 
+  const filteredThreads = threads.filter(thread => {
+    const details = getPeerDetails(thread);
+    return details.name.toLowerCase().includes(sidebarSearchQuery.toLowerCase()) ||
+      (thread.courseCode && thread.courseCode.toLowerCase().includes(sidebarSearchQuery.toLowerCase()));
+  });
+
   const filteredLecturers = allUsers.filter(u => 
     u.role === 'lecturer' && 
     u.userId !== currentUserId &&
     u.$id !== currentUserId &&
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    u.name?.toLowerCase().includes(directorySearchQuery.toLowerCase())
   );
 
   const filteredStudents = allUsers.filter(u => 
     (u.role === 'student' || !u.role) && 
     u.userId !== currentUserId &&
     u.$id !== currentUserId &&
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    u.name?.toLowerCase().includes(directorySearchQuery.toLowerCase())
   );
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4 pb-12 pt-2 text-slate-600">
+    <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 space-y-3 pb-10 pt-1 text-slate-600">
       <AdminHeader 
         title="Academic Messaging"
-        description="Connect and collaborate seamlessly with lecturers and peers in real-time."
+        description="Connect and collaborate seamlessly with lecturers, peers, and project groups in real-time."
         icon={<MessageSquare className="w-5 h-5 text-indigo-500" />}
         badgeText="Secure Chat"
       />
 
-      <div className="w-full bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12 h-[calc(100vh-16rem)] min-h-[600px]">
+      <div className="w-full bg-white border border-slate-100 rounded-2xl sm:rounded-3xl shadow-xs overflow-hidden grid grid-cols-1 lg:grid-cols-12 h-[calc(100vh-13rem)] sm:h-[calc(100vh-15rem)] min-h-[520px]">
          
         {/* Sidebar */}
-        <div className={`lg:col-span-4 border-r border-slate-100 flex flex-col h-full bg-slate-50/30 overflow-hidden ${activeThread ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`lg:col-span-4 border-r border-slate-100 flex flex-col h-full bg-slate-50/20 overflow-hidden ${activeThread ? 'hidden lg:flex' : 'flex'}`}>
             
-          <div className="p-3 border-b border-slate-100 flex items-center gap-2 bg-white/80 shrink-0">
+          <div className="p-2.5 sm:p-3 border-b border-slate-100 flex items-center gap-2 bg-white/90 backdrop-blur-md shrink-0">
             <div className="grid grid-cols-3 gap-1 flex-1">
               {(['chats', 'lecturers', 'students'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setSidebarTab(tab)}
-                  className={`py-1.5 px-2 rounded-xl text-[11px] font-medium tracking-wide transition-all cursor-pointer text-center capitalize truncate ${
+                  className={`py-1.5 px-1 sm:px-2 rounded-xl text-[10px] sm:text-[11px] font-medium tracking-wide transition-all cursor-pointer text-center capitalize truncate ${
                     sidebarTab === tab 
-                      ? 'bg-indigo-500 text-white shadow-xs font-semibold' 
+                      ? 'bg-indigo-500 text-white shadow-2xs font-semibold' 
                       : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                   }`}
                 >
@@ -779,20 +1028,31 @@ export default function Chat() {
             </button>
           </div>
 
-          {sidebarTab !== 'chats' && (
-            <div className="p-3 border-b border-slate-100 bg-white/40 shrink-0">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder={`Search ${sidebarTab}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-100/60 border border-slate-200/60 rounded-xl pl-9 pr-3.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all"
-                />
-              </div>
+          <div className="p-2.5 sm:p-3 border-b border-slate-100 bg-white/40 shrink-0 space-y-2">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder={sidebarTab === 'chats' ? "Search conversations..." : `Search ${sidebarTab}...`}
+                value={sidebarTab === 'chats' ? sidebarSearchQuery : directorySearchQuery}
+                onChange={(e) => {
+                  if (sidebarTab === 'chats') setSidebarSearchQuery(e.target.value);
+                  else setDirectorySearchQuery(e.target.value);
+                }}
+                className="w-full bg-slate-100/60 border border-slate-200/60 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all shadow-2xs"
+              />
             </div>
-          )}
+
+            {sidebarTab === 'chats' && (
+              <button
+                onClick={() => setIsGroupModalOpen(true)}
+                className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer border border-indigo-100/60 shadow-2xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Project Group</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex-1 overflow-y-auto divide-y divide-slate-50 min-h-0">
             {sidebarTab === 'chats' ? (
@@ -801,44 +1061,48 @@ export default function Chat() {
                   <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
                   <p className="text-xs text-slate-400 font-medium">Loading conversations...</p>
                 </div>
-              ) : threads.length === 0 ? (
-                <div className="py-24 px-6 text-center space-y-2">
+              ) : filteredThreads.length === 0 ? (
+                <div className="py-20 px-4 text-center space-y-2">
                   <MessageSquare className="w-8 h-8 text-slate-300 mx-auto stroke-1" />
-                  <p className="text-xs font-medium text-slate-700">No chats yet</p>
-                  <p className="text-[11px] text-slate-400">Select Lecturers or Students above to start messaging.</p>
+                  <p className="text-xs font-medium text-slate-700">No chats or groups found</p>
+                  <p className="text-[11px] text-slate-400">Create a group or select a peer to start messaging.</p>
                 </div>
               ) : (
-                threads.map((thread) => {
+                filteredThreads.map((thread) => {
                   const isSelected = activeThread?.$id === thread.$id;
-                  const peer = getPeerDetails(thread.participantIds);
-                  const presence = formatPresence(peer.lastSeen);
+                  const details = getPeerDetails(thread);
+                  const presence = formatPresence(details.lastSeen);
                   const unreadCount = unreadCounts[thread.$id] || 0;
 
                   return (
                     <div
                       key={thread.$id}
                       onClick={() => setActiveThread(thread)}
-                      className={`w-full p-3.5 text-left transition-all flex items-start gap-3 cursor-pointer relative group ${
-                        isSelected ? 'bg-indigo-50/60 border-l-2 border-indigo-500' : 'hover:bg-slate-50/80'
+                      className={`w-full p-3 text-left transition-all flex items-start gap-3 cursor-pointer relative group ${
+                        isSelected ? 'bg-indigo-50/65 border-l-2 border-indigo-500' : 'hover:bg-slate-50/80'
                       }`}
                     >
                       <div className="relative shrink-0">
-                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-indigo-50/80 border border-indigo-100/60 flex items-center justify-center relative">
-                          {peer.avatarUrl ? (
-                            <img src={peer.avatarUrl} alt={peer.name} className="w-full h-full object-cover" />
+                        <div className="w-9 h-9 rounded-2xl overflow-hidden bg-indigo-50/80 border border-indigo-100/60 flex items-center justify-center relative shadow-2xs">
+                          {details.avatarUrl ? (
+                            <img src={details.avatarUrl} alt={details.name} className="w-full h-full object-cover" />
+                          ) : thread.type === 'group' ? (
+                            <Briefcase className="w-4 h-4 text-indigo-500" />
                           ) : (
                             <User className="w-4 h-4 text-indigo-400" />
                           )}
                         </div>
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                          presence.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
-                        }`} />
+                        {thread.type !== 'group' && (
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                            presence.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
+                          }`} />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <h4 className="text-xs font-medium text-slate-800 truncate">{peer.name}</h4>
+                          <h4 className="text-xs font-medium text-slate-800 truncate">{details.name}</h4>
                           <div className="flex items-center gap-1.5">
-                            {renderRoleBadge(peer.role)}
+                            {renderRoleBadge(details.role)}
                             
                             <div className="relative">
                               <button
@@ -852,14 +1116,16 @@ export default function Chat() {
                               </button>
 
                               {activeThreadMenuId === thread.$id && (
-                                <div className="absolute right-0 top-6 w-32 bg-white border border-slate-100 rounded-xl shadow-md py-1 z-20">
-                                  <button
-                                    onClick={(e) => handleDeleteThread(e, thread.$id)}
-                                    className="w-full px-3 py-1.5 text-left text-xs font-medium text-rose-500 hover:bg-rose-50 flex items-center gap-2"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    Delete
-                                  </button>
+                                <div className="absolute right-0 top-6 w-36 bg-white border border-slate-100 rounded-2xl shadow-md py-1 z-20">
+                                  {thread.type === 'group' ? (
+                                    <button
+                                      onClick={(e) => handleExitGroup(e, thread)}
+                                      className="w-full px-3 py-1.5 text-left text-xs font-medium text-rose-500 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <LogOut className="w-3.5 h-3.5" />
+                                      Exit Group
+                                    </button>
+                                  ) : null}
                                 </div>
                               )}
                             </div>
@@ -888,33 +1154,41 @@ export default function Chat() {
                   <p className="text-xs font-medium text-slate-600">No {sidebarTab} found</p>
                 </div>
               ) : (
-                (sidebarTab === 'lecturers' ? filteredLecturers : filteredStudents).map((userObj) => (
-                  <button
-                    key={userObj.$id}
-                    onClick={() => handleSelectUser(userObj)}
-                    className="w-full p-3 text-left transition-all hover:bg-indigo-50/30 flex items-center justify-between gap-3 cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/50 flex items-center justify-center shrink-0">
-                        {userObj.avatarUrl ? (
-                          <img src={userObj.avatarUrl} alt={userObj.name} className="w-full h-full object-cover" />
-                        ) : (
-                          userObj.role === 'lecturer' ? <GraduationCap className="w-3.5 h-3.5 text-indigo-500" /> : <User className="w-3.5 h-3.5 text-slate-500" />
-                        )}
-                      </div>
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-medium text-slate-800 truncate group-hover:text-indigo-500 transition-colors">{userObj.name}</h4>
-                          {renderRoleBadge(userObj.role)}
+                (sidebarTab === 'lecturers' ? filteredLecturers : filteredStudents).map((userObj) => {
+                  const presence = formatPresence(userObj.lastSeen);
+                  return (
+                    <button
+                      key={userObj.$id}
+                      onClick={() => handleSelectUser(userObj)}
+                      className="w-full p-3 text-left transition-all hover:bg-indigo-50/30 flex items-center justify-between gap-3 cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="relative shrink-0">
+                          <div className="w-8 h-8 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/50 flex items-center justify-center shadow-2xs">
+                            {userObj.avatarUrl ? (
+                              <img src={userObj.avatarUrl} alt={userObj.name} className="w-full h-full object-cover" />
+                            ) : (
+                              userObj.role === 'lecturer' ? <GraduationCap className="w-3.5 h-3.5 text-indigo-500" /> : <User className="w-3.5 h-3.5 text-slate-500" />
+                            )}
+                          </div>
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-white ${
+                            presence.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
+                          }`} />
                         </div>
-                        <p className="text-[10px] text-slate-400 truncate">{userObj.email || userObj.campusId || userObj.role}</p>
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-medium text-slate-800 truncate group-hover:text-indigo-500 transition-colors">{userObj.name}</h4>
+                            {renderRoleBadge(userObj.role)}
+                          </div>
+                          <p className="text-[10px] text-slate-400 truncate">{presence.label}</p>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-[10px] font-medium px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-500 group-hover:text-white transition-all shrink-0">
-                      Chat
-                    </span>
-                  </button>
-                ))
+                      <span className="text-[10px] font-medium px-2.5 py-1 rounded-xl bg-slate-100 text-slate-600 group-hover:bg-indigo-500 group-hover:text-white transition-all shrink-0">
+                        Chat
+                      </span>
+                    </button>
+                  );
+                })
               )
             )}
           </div>
@@ -924,39 +1198,74 @@ export default function Chat() {
         <div className={`lg:col-span-8 flex flex-col h-full bg-white overflow-hidden ${!activeThread ? 'hidden lg:flex' : 'flex'}`}>
           {activeThread ? (
             <>
-              <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-white/90 backdrop-blur-md shrink-0">
-                <div className="flex items-center gap-3">
+              <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-white/95 backdrop-blur-md shrink-0">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <button 
                     onClick={() => setActiveThread(null)}
-                    className="lg:hidden p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer"
+                    className="lg:hidden p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer shrink-0"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <div className="w-8 h-8 rounded-xl overflow-hidden bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-                    {getPeerDetails(activeThread.participantIds).avatarUrl ? (
-                      <img src={getPeerDetails(activeThread.participantIds).avatarUrl} alt="Peer" className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-4 h-4 text-indigo-500" />
-                    )}
-                  </div>
-                  <div className="space-y-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-xs font-medium text-slate-800">
-                        {getPeerDetails(activeThread.participantIds).name}
-                      </h3>
-                      {renderRoleBadge(getPeerDetails(activeThread.participantIds).role)}
+                  <div className="relative shrink-0">
+                    <div className="w-8 h-8 rounded-2xl overflow-hidden bg-indigo-50 border border-indigo-100 flex items-center justify-center shadow-2xs">
+                      {activeThread.type === 'group' ? (
+                        <Briefcase className="w-4 h-4 text-indigo-500" />
+                      ) : getPeerDetails(activeThread).avatarUrl ? (
+                        <img src={getPeerDetails(activeThread).avatarUrl} alt="Peer" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-4 h-4 text-indigo-500" />
+                      )}
                     </div>
-                    {(() => {
-                      const peer = getPeerDetails(activeThread.participantIds);
+                    {activeThread.type !== 'group' && (() => {
+                      const peer = getPeerDetails(activeThread);
+                      const presence = formatPresence(peer.lastSeen);
+                      return <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-white ${presence.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`} />;
+                    })()}
+                  </div>
+                  <div className="space-y-0 min-w-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <h3 className="text-xs font-medium text-slate-800 truncate">
+                        {getPeerDetails(activeThread).name}
+                      </h3>
+                      {renderRoleBadge(getPeerDetails(activeThread).role)}
+                    </div>
+                    {activeThread.type === 'group' ? (
+                      <span className="text-[10px] text-slate-400 font-medium truncate block">
+                        {activeThread.participantIds.length} members • {activeThread.courseCode}
+                      </span>
+                    ) : (() => {
+                      const peer = getPeerDetails(activeThread);
                       const presence = formatPresence(peer.lastSeen);
                       return (
-                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${presence.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5 truncate">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${presence.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
                           {presence.label}
                         </span>
                       );
                     })()}
                   </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {activeThread.type === 'group' && activeThread.adminId === currentUserId && (
+                    <button
+                      onClick={() => setIsAddMemberModalOpen(true)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-[11px] font-semibold transition cursor-pointer border border-indigo-100 shadow-2xs"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Add Members</span>
+                    </button>
+                  )}
+                  {activeThread.type === 'group' && (
+                    <button
+                      onClick={(e) => handleExitGroup(e, activeThread)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-[11px] font-semibold transition cursor-pointer border border-rose-100 shadow-2xs"
+                      title="Exit Group"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Exit</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -964,7 +1273,7 @@ export default function Chat() {
               <div 
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 bg-slate-50/20 min-h-0 relative"
+                className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 bg-slate-50/10 min-h-0 relative"
               >
                 {isLoadingMessages ? (
                   <div className="h-full flex flex-col items-center justify-center gap-2">
@@ -975,28 +1284,35 @@ export default function Chat() {
                   <div className="h-full flex flex-col items-center justify-center text-center space-y-2 py-20">
                     <Sparkles className="w-7 h-7 text-indigo-300 stroke-1" />
                     <p className="text-xs font-medium text-slate-700">Start the conversation</p>
-                    <p className="text-[11px] text-slate-400">Send a message to begin chatting securely.</p>
+                    <p className="text-[11px] text-slate-400">Send a message or voice note to begin collaborating securely.</p>
                   </div>
                 ) : (
                   messages.map((msg) => {
                     const isMe = msg.senderId === currentUserId;
                     const repliedMsg = messages.find(m => m.$id === msg.replyToId);
                     const isImage = msg.fileUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.fileUrl);
+                    const isVoiceNote = msg.messageText === 'Voice Note' || (msg.fileUrl && (msg.fileUrl.includes('.webm') || msg.fileUrl.includes('.ogg') || msg.fileUrl.includes('audio')));
+                    const senderUser = allUsers.find(u => u.userId === msg.senderId || u.$id === msg.senderId);
 
                     return (
                       <div 
                         key={msg.$id} 
                         className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-0.5 relative group`}
                       >
-                        <div className={`flex items-center gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                        {!isMe && activeThread.type === 'group' && senderUser && (
+                          <span className="text-[10px] font-semibold text-indigo-600 px-1">
+                            {senderUser.name}
+                          </span>
+                        )}
+
+                        <div className={`flex items-center gap-1.5 sm:gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                           <div 
-                            className={`max-w-[80%] sm:max-w-[70%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-2xs relative space-y-1.5 ${
+                            className={`max-w-[85%] sm:max-w-[70%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-2xs relative space-y-1.5 ${
                               isMe 
                                 ? 'bg-indigo-500 text-white rounded-br-xs font-normal' 
                                 : 'bg-white text-slate-700 border border-slate-100 rounded-bl-xs'
                             }`}
                           >
-                            {/* Replied Message Banner */}
                             {repliedMsg && (
                               <div className={`px-2.5 py-1 rounded-xl text-[11px] border-l-2 flex flex-col gap-0.5 ${
                                 isMe 
@@ -1004,14 +1320,17 @@ export default function Chat() {
                                   : 'bg-slate-50 border-indigo-400 text-slate-600'
                               }`}>
                                 <span className={`font-medium text-[10px] ${isMe ? 'text-white' : 'text-indigo-500'}`}>
-                                  {repliedMsg.senderId === currentUserId ? 'You' : getPeerDetails(activeThread.participantIds).name}
+                                  {repliedMsg.senderId === currentUserId ? 'You' : (senderUser?.name || 'User')}
                                 </span>
                                 <p className="truncate opacity-90">{repliedMsg.messageText || 'Attachment'}</p>
                               </div>
                             )}
 
-                            {/* File Attachment Render */}
-                            {msg.fileUrl && (
+                            {isVoiceNote && msg.fileUrl ? (
+                              <div className="flex items-center gap-2 py-1 min-w-[170px] sm:min-w-[200px]">
+                                <audio controls src={msg.fileUrl} className="w-full h-8 accent-indigo-500" />
+                              </div>
+                            ) : msg.fileUrl && (
                               <div className="rounded-xl overflow-hidden">
                                 {isImage ? (
                                   <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
@@ -1031,11 +1350,10 @@ export default function Chat() {
                               </div>
                             )}
 
-                            {msg.messageText && <p>{msg.messageText}</p>}
+                            {!isVoiceNote && msg.messageText && <p className="break-words">{msg.messageText}</p>}
                           </div>
 
-                          {/* Message Actions Menu */}
-                          <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="relative opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => setActiveMessageMenuId(activeMessageMenuId === msg.$id ? null : msg.$id)}
                               className="p-1 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-slate-600 shadow-2xs cursor-pointer"
@@ -1044,7 +1362,7 @@ export default function Chat() {
                             </button>
 
                             {activeMessageMenuId === msg.$id && (
-                              <div className={`absolute ${isMe ? 'right-0' : 'left-0'} top-7 w-28 bg-white border border-slate-100 rounded-xl shadow-md py-1 z-20`}>
+                              <div className={`absolute ${isMe ? 'right-0' : 'left-0'} top-7 w-28 bg-white border border-slate-100 rounded-2xl shadow-md py-1 z-20`}>
                                 <button
                                   onClick={() => {
                                     setReplyingTo(msg);
@@ -1077,9 +1395,8 @@ export default function Chat() {
                 )}
                 <div ref={messagesEndRef} />
 
-                {/* Floating Scroll to Bottom Button */}
                 {!isAtBottom && (
-                  <div className="sticky bottom-4 float-right clear-both mr-2 z-20">
+                  <div className="sticky bottom-3 float-right clear-both mr-2 z-20">
                     <button
                       onClick={() => {
                         scrollToBottom('smooth');
@@ -1100,13 +1417,12 @@ export default function Chat() {
                 )}
               </div>
 
-              {/* Reply Preview Banner */}
               {replyingTo && (
-                <div className="px-4 py-2 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs shrink-0">
+                <div className="px-3 sm:px-4 py-2 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs shrink-0">
                   <div className="flex items-center gap-2.5 truncate text-slate-600 border-l-2 border-indigo-500 pl-2.5 py-0.5">
                     <div className="flex flex-col truncate">
                       <span className="font-medium text-[10px] text-indigo-500">
-                        Replying to {replyingTo.senderId === currentUserId ? 'yourself' : getPeerDetails(activeThread.participantIds).name}
+                        Replying to message
                       </span>
                       <span className="truncate text-slate-400 text-[10px]">{replyingTo.messageText || 'Attachment'}</span>
                     </div>
@@ -1120,9 +1436,8 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* Selected File Preview Banner */}
               {selectedFile && (
-                <div className="px-4 py-2 bg-indigo-50/50 border-t border-indigo-100/60 flex items-center justify-between text-xs shrink-0">
+                <div className="px-3 sm:px-4 py-2 bg-indigo-50/50 border-t border-indigo-100/60 flex items-center justify-between text-xs shrink-0">
                   <div className="flex items-center gap-2 truncate text-indigo-900">
                     <Paperclip className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                     <span className="truncate font-medium text-[11px]">{selectedFile.name}</span>
@@ -1136,8 +1451,22 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* Input Form */}
-              <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-100 bg-white flex items-center gap-2 shrink-0">
+              {isRecording && (
+                <div className="px-3 sm:px-4 py-2.5 bg-rose-50 border-t border-rose-100 flex items-center justify-between text-xs shrink-0 animate-pulse">
+                  <div className="flex items-center gap-2 text-rose-600 font-semibold truncate">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+                    <span className="truncate">Recording... ({Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')})</span>
+                  </div>
+                  <button
+                    onClick={stopRecording}
+                    className="px-3 py-1 rounded-xl bg-rose-500 text-white font-medium hover:bg-rose-600 cursor-pointer shadow-2xs shrink-0"
+                  >
+                    Stop & Send
+                  </button>
+                </div>
+              )}
+
+              <form onSubmit={handleSendMessage} className="p-2.5 sm:p-3 border-t border-slate-100 bg-white flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -1148,29 +1477,41 @@ export default function Chat() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   title="Attach file"
-                  className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 transition-all cursor-pointer shrink-0"
+                  className="p-2 sm:p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 transition-all cursor-pointer shrink-0 shadow-2xs"
                 >
                   <Paperclip className="w-4 h-4" />
                 </button>
+
+                <button
+                  type="button"
+                  onClick={isRecording ? stopRecording : startRecording}
+                  title={isRecording ? "Stop recording" : "Record voice note"}
+                  className={`p-2 sm:p-2.5 rounded-xl transition-all cursor-pointer shrink-0 shadow-2xs ${
+                    isRecording ? 'bg-rose-500 text-white animate-bounce' : 'bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500'
+                  }`}
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+
                 <input
                   type="text"
                   value={newMessageText}
                   onChange={(e) => setNewMessageText(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 bg-slate-50 border border-slate-200/60 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all"
+                  className="flex-1 bg-slate-50 border border-slate-200/60 rounded-xl px-3 sm:px-3.5 py-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all shadow-2xs min-w-0"
                 />
                 <button
                   type="submit"
                   disabled={(!newMessageText.trim() && !selectedFile) || isSending}
-                  className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white px-3 py-3 rounded-full text-xs font-medium transition-all duration-200 flex items-center justify-center shadow-2xs cursor-pointer shrink-0"
+                  className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white p-2.5 sm:px-3.5 sm:py-3 rounded-full text-xs font-medium transition-all duration-200 flex items-center justify-center shadow-2xs cursor-pointer shrink-0"
                 >
                   {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </form>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-2.5 bg-slate-50/10">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 sm:p-8 space-y-2.5 bg-slate-50/10">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center shadow-2xs">
                 <MessageSquare className="w-5 h-5 stroke-1" />
               </div>
               <h3 className="text-xs font-medium text-slate-700">No chat selected</h3>
@@ -1182,6 +1523,235 @@ export default function Chat() {
         </div>
 
       </div>
+
+      {/* Create Project / Study Group Modal */}
+      {isGroupModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-2xs">
+                  <Briefcase className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800">Create Project Group</h3>
+                  <p className="text-[10px] text-slate-400">You will be designated as group admin</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsGroupModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-200/50 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProjectGroup} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Group Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. CSC 201 Project Team"
+                  value={groupNameInput}
+                  onChange={(e) => setGroupNameInput(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white shadow-2xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Course Code</label>
+                <input
+                  type="text"
+                  placeholder="e.g. CSC 201"
+                  value={groupCourseCodeInput}
+                  onChange={(e) => setGroupCourseCodeInput(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white uppercase shadow-2xs"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-700">Add Initial Members ({selectedGroupMemberIds.length} selected)</label>
+                </div>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search members..."
+                    value={createGroupSearchQuery}
+                    onChange={(e) => setCreateGroupSearchQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white shadow-2xs"
+                  />
+                </div>
+                <div className="border border-slate-200 rounded-2xl max-h-40 sm:max-h-44 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+                  {allUsers.filter(u => u.userId !== currentUserId && u.$id !== currentUserId && u.name.toLowerCase().includes(createGroupSearchQuery.toLowerCase())).length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">No matching members found.</div>
+                  ) : (
+                    allUsers
+                      .filter(u => u.userId !== currentUserId && u.$id !== currentUserId && u.name.toLowerCase().includes(createGroupSearchQuery.toLowerCase()))
+                      .map(user => {
+                        const targetId = user.userId || user.$id;
+                        const isSelected = selectedGroupMemberIds.includes(targetId);
+                        return (
+                          <div 
+                            key={user.$id}
+                            onClick={() => {
+                              setSelectedGroupMemberIds(prev => 
+                                isSelected ? prev.filter(id => id !== targetId) : [...prev, targetId]
+                              );
+                            }}
+                            className={`p-2.5 flex items-center justify-between cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50/80' : 'hover:bg-white'}`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shadow-2xs">
+                                {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" /> : <User className="w-3.5 h-3.5 text-slate-500" />}
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-slate-800">{user.name}</p>
+                                <p className="text-[10px] text-slate-400 capitalize">{user.role || 'Student'}</p>
+                              </div>
+                            </div>
+                            <div className={`w-4 h-4 rounded-lg border flex items-center justify-center ${isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-slate-300 bg-white'}`}>
+                              {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsGroupModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!groupNameInput.trim() || isCreatingGroup}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-2xs"
+                >
+                  {isCreatingGroup && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Create Group</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Member Modal */}
+      {isAddMemberModalOpen && activeThread && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-2xs">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800">Add Members</h3>
+                  <p className="text-[10px] text-slate-400">Select users to include in this group</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsAddMemberModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-200/50 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddMembersToGroup} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-700">Select Users ({selectedUsersToAdd.length} selected)</label>
+                </div>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    value={addMemberSearchQuery}
+                    onChange={(e) => setAddMemberSearchQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white shadow-2xs"
+                  />
+                </div>
+                <div className="border border-slate-200 rounded-2xl max-h-48 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+                  {allUsers.filter(u => {
+                    const id = u.userId || u.$id;
+                    const notInGroup = !activeThread.participantIds.includes(id);
+                    const matchesSearch = u.name.toLowerCase().includes(addMemberSearchQuery.toLowerCase());
+                    return notInGroup && matchesSearch;
+                  }).length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">No matching users available to add.</div>
+                  ) : (
+                    allUsers
+                      .filter(u => {
+                        const id = u.userId || u.$id;
+                        const notInGroup = !activeThread.participantIds.includes(id);
+                        const matchesSearch = u.name.toLowerCase().includes(addMemberSearchQuery.toLowerCase());
+                        return notInGroup && matchesSearch;
+                      })
+                      .map(user => {
+                        const targetId = user.userId || user.$id;
+                        const isSelected = selectedUsersToAdd.includes(targetId);
+                        return (
+                          <div 
+                            key={user.$id}
+                            onClick={() => {
+                              setSelectedUsersToAdd(prev => 
+                                isSelected ? prev.filter(id => id !== targetId) : [...prev, targetId]
+                              );
+                            }}
+                            className={`p-2.5 flex items-center justify-between cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50/80' : 'hover:bg-white'}`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shadow-2xs">
+                                {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" /> : <User className="w-3.5 h-3.5 text-slate-500" />}
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-slate-800">{user.name}</p>
+                                <p className="text-[10px] text-slate-400 capitalize">{user.role || 'Student'}</p>
+                              </div>
+                            </div>
+                            <div className={`w-4 h-4 rounded-lg border flex items-center justify-center ${isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-slate-300 bg-white'}`}>
+                              {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMemberModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={selectedUsersToAdd.length === 0 || isAddingMembers}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-2xs"
+                >
+                  {isAddingMembers && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Add Selected Members</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
