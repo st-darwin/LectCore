@@ -23,7 +23,10 @@ import {
   Check,
   Mic,
   UserPlus,
-  LogOut
+  LogOut,
+  Play,
+  Pause,
+  Square
 } from 'lucide-react';
 import { client, databases, account, storage, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
@@ -61,6 +64,76 @@ export interface AppUser {
   campusId: string;
   avatarUrl?: string;
   lastSeen?: string;
+}
+
+// Super Responsive Custom Voice Note Player Component
+function VoiceMessagePlayer({ fileUrl, isMe }: { fileUrl: string; isMe: boolean }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const onTimeUpdate = () => {
+    if (!audioRef.current) return;
+    const current = audioRef.current.currentTime;
+    const total = audioRef.current.duration || 0;
+    setDuration(total);
+    setProgress(total > 0 ? (current / total) * 100 : 0);
+  };
+
+  const formatTime = (secs: number) => {
+    if (isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  return (
+    <div className="flex items-center gap-2.5 sm:gap-3 py-1 w-full sm:w-[220px] max-w-full">
+      <audio 
+        ref={audioRef} 
+        src={fileUrl} 
+        onTimeUpdate={onTimeUpdate}
+        onEnded={() => { setIsPlaying(false); setProgress(0); }}
+        className="hidden" 
+      />
+      <button
+        type="button"
+        onClick={togglePlay}
+        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-2xs ${
+          isMe 
+            ? 'bg-white text-indigo-600 hover:bg-slate-100' 
+            : 'bg-indigo-500 text-white hover:bg-indigo-600'
+        }`}
+      >
+        {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
+      </button>
+
+      <div className="flex-1 space-y-1 min-w-[120px]">
+        <div className="h-1.5 w-full bg-black/10 rounded-full overflow-hidden relative">
+          <div 
+            className={`h-full transition-all duration-100 ${isMe ? 'bg-white' : 'bg-indigo-500'}`} 
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between text-[10px] opacity-80 font-medium">
+          <span>{isPlaying ? formatTime(audioRef.current?.currentTime || 0) : 'Voice Note'}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Chat() {
@@ -108,6 +181,7 @@ export default function Chat() {
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const isCancelledRef = useRef(false);
   const timerIntervalRef = useRef<any>(null);
    
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -689,6 +763,7 @@ export default function Chat() {
   const startRecording = async () => {
     try {
       audioChunksRef.current = [];
+      isCancelledRef.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -700,10 +775,11 @@ export default function Chat() {
       };
 
       mediaRecorder.onstop = async () => {
+        if (isCancelledRef.current) return;
+
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const audioFile = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' });
         await sendVoiceNoteMessage(audioFile);
-        stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
@@ -721,7 +797,26 @@ export default function Chat() {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+      isCancelledRef.current = false;
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+      setIsRecording(false);
+      clearInterval(timerIntervalRef.current);
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      isCancelledRef.current = true;
+      audioChunksRef.current = [];
+
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+
       setIsRecording(false);
       clearInterval(timerIntervalRef.current);
     }
@@ -1327,9 +1422,7 @@ export default function Chat() {
                             )}
 
                             {isVoiceNote && msg.fileUrl ? (
-                              <div className="flex items-center gap-2 py-1 min-w-[170px] sm:min-w-[200px]">
-                                <audio controls src={msg.fileUrl} className="w-full h-8 accent-indigo-500" />
-                              </div>
+                              <VoiceMessagePlayer fileUrl={msg.fileUrl} isMe={isMe} />
                             ) : msg.fileUrl && (
                               <div className="rounded-xl overflow-hidden">
                                 {isImage ? (
@@ -1451,18 +1544,47 @@ export default function Chat() {
                 </div>
               )}
 
+              {/* Super-Responsive Recording Bar UI */}
               {isRecording && (
-                <div className="px-3 sm:px-4 py-2.5 bg-rose-50 border-t border-rose-100 flex items-center justify-between text-xs shrink-0 animate-pulse">
-                  <div className="flex items-center gap-2 text-rose-600 font-semibold truncate">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
-                    <span className="truncate">Recording... ({Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')})</span>
+                <div className="px-3 sm:px-4 py-2.5 bg-rose-500 text-white border-t border-rose-600 flex items-center justify-between gap-2 sm:gap-3 text-xs shrink-0 shadow-md">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <span className="font-semibold tabular-nums shrink-0 tracking-wider">
+                        {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+                      </span>
+                      <div className="flex items-center gap-0.5 h-4 flex-1 max-w-[120px] sm:max-w-[160px] overflow-hidden opacity-90">
+                        {[...Array(12)].map((_, i) => (
+                          <span 
+                            key={i} 
+                            className="w-1 bg-white rounded-full animate-pulse"
+                            style={{ 
+                              height: `${Math.max(25, Math.sin(i + recordingTime * 3) * 100)}%`,
+                              animationDelay: `${i * 0.08}s` 
+                            }} 
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] sm:text-[11px] opacity-90 truncate font-medium hidden xs:inline">Recording...</span>
+                    </div>
                   </div>
-                  <button
-                    onClick={stopRecording}
-                    className="px-3 py-1 rounded-xl bg-rose-500 text-white font-medium hover:bg-rose-600 cursor-pointer shadow-2xs shrink-0"
-                  >
-                    Stop & Send
-                  </button>
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={cancelRecording}
+                      className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-white/20 text-white hover:bg-white/30 font-medium transition cursor-pointer border border-white/20 text-[10px] sm:text-[11px]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopRecording}
+                      className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-white text-rose-600 font-bold hover:bg-slate-100 transition cursor-pointer flex items-center gap-1 shadow-xs text-[10px] sm:text-[11px]"
+                    >
+                      <Square className="w-3 h-3 fill-current" />
+                      <span>Send</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
