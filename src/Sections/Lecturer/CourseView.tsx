@@ -218,6 +218,7 @@ const CourseView = () => {
                     {course.university}
                   </span>
                   <Link
+                   // id from the params
                     to={`/lecturer/courses/${course.$id}`}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50/60 hover:bg-indigo-600 text-indigo-600 hover:text-white text-xs font-semibold transition-all duration-200 group/link"
                   >
