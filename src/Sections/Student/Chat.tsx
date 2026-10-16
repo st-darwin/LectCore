@@ -26,7 +26,9 @@ import {
   LogOut,
   Play,
   Pause,
-  Square
+  Square,
+  Pin,
+  Copy
 } from 'lucide-react';
 import { client, databases, account, storage, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
@@ -39,6 +41,7 @@ export interface Thread {
   name?: string;          // Group name if type === 'group'
   courseCode?: string;    // Course code if type === 'group'
   adminId?: string;       // Admin user ID for groups
+  pinnedMessageId?: string; // Pinned message ID for announcements
   hiddenForIds?: string[];// Users who cleared/deleted this thread view for themselves
   lastMessage?: string;
   lastMessageAt?: string;
@@ -161,6 +164,7 @@ export default function Chat() {
   const [activeThreadMenuId, setActiveThreadMenuId] = useState<string | null>(null);
   const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [copyFeedbackId, setCopyFeedbackId] = useState<string | null>(null);
 
   // Group Modals State & Member Search
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -760,6 +764,40 @@ export default function Chat() {
     }
   };
 
+  const handleTogglePinMessage = async (messageId: string) => {
+    setActiveMessageMenuId(null);
+    if (!activeThread) return;
+    
+    // Toggle off if already pinned, otherwise pin this message
+    const newPinnedId = activeThread.pinnedMessageId === messageId ? '' : messageId;
+
+    try {
+      const updatedDoc = await databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.threadsId,
+        activeThread.$id,
+        {
+          pinnedMessageId: newPinnedId
+        }
+      );
+
+      const updatedThread = updatedDoc as unknown as Thread;
+      setActiveThread(updatedThread);
+      setThreads(prev => prev.map(t => t.$id === updatedThread.$id ? updatedThread : t));
+    } catch (error) {
+      console.error('Failed to toggle pin message:', error);
+    }
+  };
+
+  const handleCopyMessageText = (text: string, messageId: string) => {
+    setActiveMessageMenuId(null);
+    navigator.clipboard.writeText(text);
+    setCopyFeedbackId(messageId);
+    setTimeout(() => {
+      setCopyFeedbackId(null);
+    }, 2000);
+  };
+
   const startRecording = async () => {
     try {
       audioChunksRef.current = [];
@@ -992,6 +1030,15 @@ export default function Chat() {
         messageId
       );
       setMessages(prev => prev.filter(m => m.$id !== messageId));
+      if (activeThread?.pinnedMessageId === messageId) {
+        await databases.updateDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.threadsId,
+          activeThread.$id,
+          { pinnedMessageId: '' }
+        );
+        setActiveThread(prev => prev ? { ...prev, pinnedMessageId: '' } : null);
+      }
     } catch (error) {
       console.error('Failed to delete message:', error);
     }
@@ -1082,6 +1129,8 @@ export default function Chat() {
     u.$id !== currentUserId &&
     u.name?.toLowerCase().includes(directorySearchQuery.toLowerCase())
   );
+
+  const pinnedMessage = activeThread?.pinnedMessageId ? messages.find(m => m.$id === activeThread.pinnedMessageId) : null;
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 space-y-3 pb-10 pt-1 text-slate-600">
@@ -1364,6 +1413,32 @@ export default function Chat() {
                 </div>
               </div>
 
+              {/* Pinned Message Announcement Banner */}
+              {pinnedMessage && (
+                <div className="px-3.5 py-2 bg-amber-50/80 border-b border-amber-100/80 flex items-center justify-between text-xs shrink-0">
+                  <div className="flex items-center gap-2.5 truncate text-amber-900 min-w-0">
+                    <div className="p-1.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+                      <Pin className="w-3.5 h-3.5 fill-current" />
+                    </div>
+                    <div className="flex flex-col truncate min-w-0">
+                      <span className="font-semibold text-[10px] text-amber-800 uppercase tracking-wider">
+                        Pinned Announcement
+                      </span>
+                      <p className="truncate text-amber-900 text-[11px]">{pinnedMessage.messageText || 'Attachment'}</p>
+                    </div>
+                  </div>
+                  {activeThread.adminId === currentUserId && (
+                    <button
+                      onClick={() => handleTogglePinMessage(pinnedMessage.$id)}
+                      className="p-1 rounded-lg text-amber-600 hover:bg-amber-200/50 cursor-pointer shrink-0 transition"
+                      title="Unpin message"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Message List Container */}
               <div 
                 ref={messagesContainerRef}
@@ -1388,6 +1463,8 @@ export default function Chat() {
                     const isImage = msg.fileUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.fileUrl);
                     const isVoiceNote = msg.messageText === 'Voice Note' || (msg.fileUrl && (msg.fileUrl.includes('.webm') || msg.fileUrl.includes('.ogg') || msg.fileUrl.includes('audio')));
                     const senderUser = allUsers.find(u => u.userId === msg.senderId || u.$id === msg.senderId);
+                    const isPinned = activeThread?.pinnedMessageId === msg.$id;
+                    const isJustCopied = copyFeedbackId === msg.$id;
 
                     return (
                       <div 
@@ -1406,7 +1483,7 @@ export default function Chat() {
                               isMe 
                                 ? 'bg-indigo-500 text-white rounded-br-xs font-normal' 
                                 : 'bg-white text-slate-700 border border-slate-100 rounded-bl-xs'
-                            }`}
+                            } ${isPinned ? 'ring-2 ring-amber-400/80' : ''}`}
                           >
                             {repliedMsg && (
                               <div className={`px-2.5 py-1 rounded-xl text-[11px] border-l-2 flex flex-col gap-0.5 ${
@@ -1444,6 +1521,12 @@ export default function Chat() {
                             )}
 
                             {!isVoiceNote && msg.messageText && <p className="break-words">{msg.messageText}</p>}
+
+                            {isJustCopied && (
+                              <span className="absolute -top-6 right-0 bg-slate-800 text-white text-[9px] font-medium px-2 py-0.5 rounded-md shadow-md animate-in fade-in">
+                                Copied!
+                              </span>
+                            )}
                           </div>
 
                           <div className="relative opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
@@ -1455,7 +1538,14 @@ export default function Chat() {
                             </button>
 
                             {activeMessageMenuId === msg.$id && (
-                              <div className={`absolute ${isMe ? 'right-0' : 'left-0'} top-7 w-28 bg-white border border-slate-100 rounded-2xl shadow-md py-1 z-20`}>
+                              <div className={`absolute ${isMe ? 'right-0' : 'left-0'} top-7 w-32 bg-white border border-slate-100 rounded-2xl shadow-md py-1 z-20`}>
+                                <button
+                                  onClick={() => handleCopyMessageText(msg.messageText, msg.$id)}
+                                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-600 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Copy className="w-3 h-3 text-indigo-500" />
+                                  Copy Text
+                                </button>
                                 <button
                                   onClick={() => {
                                     setReplyingTo(msg);
@@ -1465,6 +1555,13 @@ export default function Chat() {
                                 >
                                   <Reply className="w-3 h-3 text-indigo-500" />
                                   Reply
+                                </button>
+                                <button
+                                  onClick={() => handleTogglePinMessage(msg.$id)}
+                                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-amber-600 hover:bg-amber-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Pin className="w-3 h-3 text-amber-500" />
+                                  {isPinned ? 'Unpin' : 'Pin Message'}
                                 </button>
                                 <button
                                   onClick={() => handleDeleteMessage(msg.$id)}

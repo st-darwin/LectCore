@@ -30,7 +30,7 @@ const CourseDetail = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+ 
 
   // Search state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -58,7 +58,7 @@ const CourseDetail = () => {
       setCourse(response as unknown as Course);
     } catch (err) {
       console.error("Failed to fetch course:", err);
-      setError("Course not found.");
+      // setError("Course not found.");
     }
   };
 
@@ -171,7 +171,7 @@ const CourseDetail = () => {
         title: `New Material: ${course ? course.courseCode : 'Course'}`,
         message: `New resource uploaded: ${title.trim()}`,
         type: 'MATERIAL',
-        relatedId: response.$id,
+        relatedId: response.courseId,
       });
 
       // Reset form & refresh

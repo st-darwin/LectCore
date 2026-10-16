@@ -35,11 +35,10 @@ return userId
 const UploadNewMaterial: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
-  const  currentUser = useLoaderData() as string
+  const currentUser = useLoaderData() as string
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [course, setCourse] = useState<CourseDetails | null>(null);
-  const [loadingCourse, setLoadingCourse] = useState<boolean>(true);
   
   // Form states
   const [title, setTitle] = useState<string>('');
@@ -56,7 +55,6 @@ const UploadNewMaterial: React.FC = () => {
 
   const fetchCourseDetails = async () => {
     try {
-      setLoadingCourse(true);
       const res = await databases.getDocument(
         appwriteConfig.databaseId,
         appwriteConfig.courseId,
@@ -70,8 +68,6 @@ const UploadNewMaterial: React.FC = () => {
       });
     } catch (error) {
       console.error('Error fetching course details:', error);
-    } finally {
-      setLoadingCourse(false);
     }
   };
 
@@ -107,7 +103,7 @@ const UploadNewMaterial: React.FC = () => {
     }
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !selectedFile) {
       alert('Please provide a material title and select a file to upload.');
@@ -139,9 +135,8 @@ const handleSubmit = async (e: React.FormEvent) => {
           title: title.trim(),
           fileUrl: fileUrl,
           fileId: uploadedFile.$id,
-        
           courseId: courseId as string,
-          uploadedBy: currentUser as string, // Replace with dynamic user account name/ID if available
+          uploadedBy: currentUser as string,
           bucketId: appwriteConfig.storageId,
         }
       );

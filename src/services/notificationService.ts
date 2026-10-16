@@ -46,7 +46,7 @@ export const notificationService = {
     }
   },
 
-  // Helper method if you need to create notifications from client-side actions
+  // Helper method if you need to create notifications pm run  from client-side actions
   async createNotification(data: {
     userId: string;
     title: string;

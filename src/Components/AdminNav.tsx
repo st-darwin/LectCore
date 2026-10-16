@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AdminNavItems } from "../Utils/constants";
-import { Menu, X, LogOut, ShieldCheck } from 'lucide-react';
+import { Menu, X, LogOut } from 'lucide-react';
 import { auth } from "../appwrite/Auth";
 import logo from "../assets/icons/logo.png"
 

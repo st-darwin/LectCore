@@ -64,7 +64,7 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(true);
   const [userName, setUserName] = useState<string>('Student');
-  const [userId, setUserId] = useState<string>('');
+//  const [userId, setUserId] = useState<string>('');
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [totalEnrolledCount, setTotalEnrolledCount] = useState<number>(0);
   const [recentAnnouncements, setRecentAnnouncements] = useState<Announcement[]>([]);
@@ -97,7 +97,7 @@ const StudentDashboard = () => {
       if (!user) return;
 
       setUserName(user.name || user.email.split('@')[0]);
-      setUserId(user.$id);
+      // setUserId(user.$id);
 
       const enrollmentsRes = await databases.listDocuments(
         appwriteConfig.databaseId,

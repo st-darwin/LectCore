@@ -48,6 +48,7 @@ interface Submission {
   grade?: number;
   feedback?: string;
   studentName?: string;
+  $createdAt?: string;
 }
 
 const ViewAssignments: React.FC = () => {
@@ -55,7 +56,6 @@ const ViewAssignments: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [courseFilter, setCourseFilter] = useState<string>('all');
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string>('');
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [coursesList, setCoursesList] = useState<{ id: string; code: string; title: string }[]>([]);
@@ -213,8 +213,6 @@ const ViewAssignments: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this assignment? All associated student submissions will also be deleted.')) return;
 
     try {
-      setDeletingId(id);
-
       // 1. Fetch all submissions linked to this assignment
       const submissionsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
@@ -246,8 +244,6 @@ const ViewAssignments: React.FC = () => {
       console.error('Error deleting assignment and submissions:', err);
       setError(err.message || 'Failed to delete assignment and submissions.');
       setTimeout(() => setError(''), 4000);
-    } finally {
-      setDeletingId(null);
     }
   };
 
@@ -691,7 +687,7 @@ const ViewAssignments: React.FC = () => {
                               <User className="w-3.5 h-3.5 text-indigo-600" /> {sub.studentName}
                             </span>
                             <p className="text-[11px] text-slate-400">
-                              Submitted on: {new Date(sub.submittedAt || sub.$createdAt).toLocaleString()}
+                              Submitted on: {new Date(sub.submittedAt || sub.$createdAt || '').toLocaleString()}
                             </p>
                           </div>
 

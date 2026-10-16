@@ -4,7 +4,7 @@ import {
   Save, 
   User, 
   Mail, 
-  Shield, 
+  
   Bell, 
   Database, 
   Loader2, 
@@ -16,7 +16,7 @@ import {
   Lock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { account, databases, appwriteConfig } from '../../appwrite/Client';
+import { account, appwriteConfig } from '../../appwrite/Client';
 import AdminHeader from '../../Components/AdminHeader';
 
 const Settings: React.FC = () => {
