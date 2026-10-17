@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Timer, 
   Play, 
@@ -47,7 +47,7 @@ export default function PomodoroTimer() {
 
   // Timer Countdown Effect
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
     if (isRunning && timeLeft > 0) {
       timer = setInterval(() => {
         setTimeLeft(prev => prev - 1);
