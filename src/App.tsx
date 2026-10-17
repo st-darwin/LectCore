@@ -42,6 +42,8 @@ import StudentSettings from "./Sections/Student/Settings";
 import ViewGrades from "./Sections/Student/ViewGrades";
 import ViewAnalytics from "./Sections/Lecturer/ViewAnalytics";
 import NotifcationView from "./Sections/Student/NotifcationView";
+import Flashcards from "./Sections/Lecturer/Flashcards";
+import PomodoroTimer from "./Sections/Student/PomodoroTimer";
 
 
 const router = createBrowserRouter(
@@ -93,6 +95,7 @@ const router = createBrowserRouter(
         <Route path="chat" element={<Chat/>} />
         <Route  path="settings" element={<StudentSettings/>} />
         <Route  path="analysis"  element={<ViewAnalytics/>}/>
+        <Route path="flashcards" element={<Flashcards/>} />
 
 
       </Route>
@@ -111,6 +114,8 @@ const router = createBrowserRouter(
          <Route  path="settings" element={<StudentSettings/>} />
          <Route path="grades" element={<ViewGrades/>} />
          <Route path="notifications" element={<NotifcationView />} />
+         <Route path="flashcards" element={<Flashcards/>} />
+         <Route path="pomodoro-timer" element={<PomodoroTimer/>} />
         {/* Once you build student pages, add them here like this: */}
         {/* <Route index element={<StudentDashboard />} /> */}
       </Route>

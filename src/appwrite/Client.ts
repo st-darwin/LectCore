@@ -17,6 +17,9 @@ export const appwriteConfig = {
   notificationsId: import.meta.env.VITE_APPWRITE_NOTIFICATION_COLLECTION_ID,
   threadsId : import.meta.env.VITE_APPWRITE_THREADS_COLLECTION_ID,
   messagesId : import.meta.env.VITE_APPWRITE_MESSAGES_COLLECTION_ID,
+  flashcardDecksId:import.meta.env.VITE_APPWRITE_FLASHCARD_DECKS_ID,
+  flashcardsId: import.meta.env.VITE_APPWRITE_FLASHCARD_ID,
+  studySessionsId: import.meta.env.VITE_APPWRITE_STUDY_SESSIONS_ID
   
 
 

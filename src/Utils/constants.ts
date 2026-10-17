@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon, GraduationCap, ChartAreaIcon, BellOff } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon, GraduationCap, ChartAreaIcon, BellOff, Layers, TimerIcon } from 'lucide-react';
 
 // nav items for the lecturer
 export const LecturerNavItems = [
@@ -18,6 +18,11 @@ export const LecturerNavItems = [
     icon: Users,
   },
   {
+    label: 'Flashcards',
+    path: '/lecturer/flashcards',
+    icon: Layers,
+  },
+  {
     label: 'Announcements',
     path: '/lecturer/announcements',
     icon: Megaphone,
@@ -27,27 +32,22 @@ export const LecturerNavItems = [
     path: '/lecturer/assignments',
     icon: FileText,
   },
-    {
-    label : "Chat",
+  {
+    label: "Chat",
     path: "/lecturer/chat",
-    icon :  MessagesSquare
-
+    icon: MessagesSquare
   },
-
-    {
+  {
     label: "View Analysis",
     path: "/lecturer/analysis",
     icon: ChartAreaIcon
   },
-
-    {
-    label : "Settings",
+  {
+    label: "Settings",
     path: "/lecturer/settings",
-    icon : Settings2Icon
+    icon: Settings2Icon
   }
 ];
-
-
 
 export const StudentNavItems = [
   {
@@ -61,6 +61,16 @@ export const StudentNavItems = [
     icon: BookOpen,
   },
   {
+    label: 'Flashcards',
+    path: '/student/flashcards',
+    icon: Layers,
+  },
+    {
+    label: "Pomodoro Timer",
+    path: "/student/pomodoro-timer",
+    icon: TimerIcon
+  },
+  {
     label: 'Assignments',
     path: '/student/assignments',
     icon: FileText,
@@ -71,39 +81,32 @@ export const StudentNavItems = [
     icon: Megaphone,
   },
   {
-    label : "Real time Sync",
+    label: "Real time Sync",
     path: "/student/real-time-sync",
-    icon : Activity
-
-
+    icon: Activity
   },
-  
-
   {
-    label : "Chat",
+    label: "Chat",
     path: "/student/chat",
-    icon :  MessagesSquare
-
+    icon: MessagesSquare
   },
   {
-    label : "Grades",
+    label: "Grades",
     path: "/student/grades",
-    icon :  GraduationCap,
+    icon: GraduationCap,
   },
-
   {
-    label : "Notifications",
+    label: "Notifications",
     path: "/student/notifications",
-    icon :  BellOff,
-      
+    icon: BellOff,
+  },
+  {
+    label: "Settings",
+    path: "/student/settings",
+    icon: Settings2Icon
   },
 
 
-  {
-    label : "Settings",
-    path: "/student/settings",
-    icon : Settings2Icon
-  }
 ];
 
 export const AdminNavItems = [
@@ -137,16 +140,14 @@ export const AdminNavItems = [
     path: '/admin/settings',
     icon: Settings,
   },
-    {
-    label : "Chat",
+  {
+    label: "Chat",
     path: "/admin/chat",
-    icon :  MessagesSquare
-
+    icon: MessagesSquare
   },
-    {
-    label : "Profile Settings",
+  {
+    label: "Profile Settings",
     path: "/admin/profile",
-    icon : Settings2Icon
+    icon: Settings2Icon
   }
-
 ];
