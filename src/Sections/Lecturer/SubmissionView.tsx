@@ -1,9 +1,25 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ClipboardList, Loader2, ArrowLeft, Calendar, Award, CheckCircle2, Clock, FileText, Mail, ExternalLink, CheckCheck } from 'lucide-react';
+import { 
+  ClipboardList, 
+  Loader2, 
+  ArrowLeft, 
+  Calendar, 
+  Award, 
+  CheckCircle2, 
+  Clock, 
+  FileText, 
+  Mail, 
+  ExternalLink, 
+  CheckCheck, 
+  Search, 
+  Download 
+} from 'lucide-react';
 import Header from '../../Components/Header';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Assignment {
   $id: string;
@@ -43,12 +59,17 @@ const SubmissionView = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'read'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Grading modal state
   const [activeSubmission, setActiveSubmission] = useState<Submission | null>(null);
   const [grade, setGrade] = useState<string>('');
   const [feedback, setFeedback] = useState<string>('');
   const [submittingGrade, setSubmittingGrade] = useState<boolean>(false);
+
+  // Download confirmation modal state
+  const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
 
   useEffect(() => {
     if (assignmentId) {
@@ -62,28 +83,26 @@ const SubmissionView = () => {
       const user = await account.get();
       if (!user) return;
 
-      // 1. Fetch Assignment details
-      const assignmentRes = await databases.getDocument(
-        appwriteConfig.databaseId,
-        appwriteConfig.assignmentId || 'assignments',
-        assignmentId!
-      );
+      const [assignmentRes, submissionsRes, studentsRes] = await Promise.all([
+        databases.getDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.assignmentId || 'assignments',
+          assignmentId!
+        ),
+        databases.listDocuments(
+          appwriteConfig.databaseId,
+          appwriteConfig.submissionsId || 'submissions',
+          [Query.equal('assignmentId', assignmentId!)]
+        ),
+        databases.listDocuments(
+          appwriteConfig.databaseId,
+          appwriteConfig.userCollectionId,
+          [Query.equal('role', 'student')]
+        )
+      ]);
+
       setAssignment(assignmentRes as unknown as Assignment);
-
-      // 2. Fetch Submissions for this assignment
-      const submissionsRes = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.submissionsId || 'submissions',
-        [Query.equal('assignmentId', assignmentId!)]
-      );
       setSubmissions(submissionsRes.documents as unknown as Submission[]);
-
-      // 3. Fetch students to match names
-      const studentsRes = await databases.listDocuments(
-        appwriteConfig.databaseId,
-        appwriteConfig.userCollectionId,
-        [Query.equal('role', 'student')]
-      );
       setStudents(studentsRes.documents as unknown as Student[]);
     } catch (err) {
       console.error("Failed to fetch submissions data:", err);
@@ -99,9 +118,7 @@ const SubmissionView = () => {
         appwriteConfig.databaseId,
         appwriteConfig.submissionsId || 'submissions',
         sub.$id,
-        {
-          isRead: nextReadState,
-        }
+        { isRead: nextReadState }
       );
 
       setSubmissions((prev) =>
@@ -127,7 +144,7 @@ const SubmissionView = () => {
         {
           grade: parseFloat(grade),
           feedback,
-          isRead: true, // Automatically mark as read when graded
+          isRead: true,
         }
       );
 
@@ -150,10 +167,85 @@ const SubmissionView = () => {
     return students.find((s) => s.$id === studentId || s.userId === studentId);
   };
 
+  const handleDownloadPDF = () => {
+    try {
+      setIsGeneratingPdf(true);
+      const doc = new jsPDF();
+
+      // Title & Header Information
+      doc.setFontSize(16);
+      doc.setTextColor(30, 41, 59); // Slate-800
+      doc.text("LectCore - Assignment Submissions Report", 14, 18);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // Slate-500
+      doc.text(`Assignment: ${assignment?.title || 'N/A'}`, 14, 25);
+      doc.text(`Total Marks: ${assignment?.totalMarks || 'N/A'} | Generated: ${new Date().toLocaleDateString()}`, 14, 31);
+
+      // Table Rows Preparation
+      const tableData = filteredSubmissions.map((sub, index) => {
+        const student = getStudentDetails(sub.studentId);
+        const isGraded = sub.grade !== undefined && sub.grade !== null;
+        const submittedDate = sub.submittedAt 
+          ? new Date(sub.submittedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) 
+          : 'N/A';
+
+        return [
+          (index + 1).toString(),
+          student?.name || 'Unknown Student',
+          student?.campusId || 'N/A',
+          submittedDate,
+          isGraded ? `${sub.grade} / ${assignment?.totalMarks || 100}` : 'Pending',
+          sub.isRead ? 'Read' : 'Unread'
+        ];
+      });
+
+      // Render AutoTable
+      autoTable(doc, {
+        startY: 36,
+        head: [['#', 'Student Name', 'Campus ID', 'Submitted At', 'Marks', 'Status']],
+        body: tableData,
+        headStyles: {
+          fillColor: [79, 70, 229], // Indigo-600
+          textColor: 255,
+          fontSize: 9,
+          fontStyle: 'bold'
+        },
+        bodyStyles: {
+          fontSize: 8.5,
+          textColor: [51, 65, 85]
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      doc.save(`Submissions_${assignment?.title ? assignment.title.replace(/\s+/g, '_') : 'Report'}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+    } finally {
+      setIsGeneratingPdf(false);
+      setShowDownloadModal(false);
+    }
+  };
+
   const filteredSubmissions = submissions.filter((sub) => {
-    if (filterTab === 'unread') return !sub.isRead;
-    if (filterTab === 'read') return !!sub.isRead;
-    return true;
+    const student = getStudentDetails(sub.studentId);
+    const matchesTab = 
+      filterTab === 'all' ? true :
+      filterTab === 'unread' ? !sub.isRead : !!sub.isRead;
+
+    if (!matchesTab) return false;
+
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const nameMatch = student?.name?.toLowerCase().includes(query) || false;
+    const idMatch = student?.campusId?.toLowerCase().includes(query) || false;
+    const emailMatch = student?.email?.toLowerCase().includes(query) || false;
+    const textMatch = sub.submissionText?.toLowerCase().includes(query) || false;
+
+    return nameMatch || idMatch || emailMatch || textMatch;
   });
 
   const unreadCount = submissions.filter((s) => !s.isRead).length;
@@ -161,18 +253,27 @@ const SubmissionView = () => {
 
   return (
     <div className="space-y-6 pb-16 animate-in fade-in duration-300">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2.5 rounded-2xl bg-indigo-50/80 backdrop-blur-xl border border-indigo-100 text-indigo-600 hover:bg-indigo-100 transition-all cursor-pointer shadow-2xs"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <Header
+            title="Assignment Submissions"
+            description="Review student work, mark submissions as read, grade items, and provide feedback."
+            icon={<ClipboardList size={20} />}
+          />
+        </div>
         <button
-          onClick={() => navigate(-1)}
-          className="p-2.5 rounded-2xl bg-indigo-50/80 backdrop-blur-xl border border-indigo-100 text-indigo-600 hover:bg-indigo-100 transition-all cursor-pointer shadow-2xs"
+          onClick={() => setShowDownloadModal(true)}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer shrink-0"
         >
-          <ArrowLeft size={18} />
+          <Download size={15} />
+          <span>Download Submissions</span>
         </button>
-        <Header
-          title="Assignment Submissions"
-          description="Review student work, mark submissions as read, grade items, and provide feedback."
-          icon={<ClipboardList size={20} />}
-        />
       </div>
 
       {loading ? (
@@ -207,47 +308,61 @@ const SubmissionView = () => {
             </div>
           </div>
 
-          {/* Filter Tabs Section */}
-          <div className="flex items-center gap-2 border-b border-indigo-100 pb-3">
-            <button
-              onClick={() => setFilterTab('all')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 ${
-                filterTab === 'all'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
-                  : 'bg-indigo-50/50 text-indigo-900 hover:bg-indigo-100/60 border border-indigo-100/80'
-              }`}
-            >
-              <span>All</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${filterTab === 'all' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
-                {submissions.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilterTab('unread')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 ${
-                filterTab === 'unread'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
-                  : 'bg-indigo-50/50 text-indigo-900 hover:bg-indigo-100/60 border border-indigo-100/80'
-              }`}
-            >
-              <span>Unread</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${filterTab === 'unread' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
-                {unreadCount}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilterTab('read')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 ${
-                filterTab === 'read'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
-                  : 'bg-indigo-50/50 text-indigo-900 hover:bg-indigo-100/60 border border-indigo-100/80'
-              }`}
-            >
-              <span>Read</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${filterTab === 'read' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
-                {readCount}
-              </span>
-            </button>
+          {/* Search & Filter Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 border-b sm:border-b-0 border-indigo-100 pb-3 sm:pb-0 overflow-x-auto">
+              <button
+                onClick={() => setFilterTab('all')}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                  filterTab === 'all'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
+                    : 'bg-indigo-50/50 text-indigo-900 hover:bg-indigo-100/60 border border-indigo-100/80'
+                }`}
+              >
+                <span>All</span>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${filterTab === 'all' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {submissions.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setFilterTab('unread')}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                  filterTab === 'unread'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
+                    : 'bg-indigo-50/50 text-indigo-900 hover:bg-indigo-100/60 border border-indigo-100/80'
+                }`}
+              >
+                <span>Unread</span>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${filterTab === 'unread' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {unreadCount}
+                </span>
+              </button>
+              <button
+                onClick={() => setFilterTab('read')}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                  filterTab === 'read'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
+                    : 'bg-indigo-50/50 text-indigo-900 hover:bg-indigo-100/60 border border-indigo-100/80'
+                }`}
+              >
+                <span>Read</span>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${filterTab === 'read' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {readCount}
+                </span>
+              </button>
+            </div>
+
+            {/* Search Bar Input */}
+            <div className="relative w-full sm:w-72">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-400" />
+              <input
+                type="text"
+                placeholder="Search by name, ID or text..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-indigo-100 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
+              />
+            </div>
           </div>
 
           {/* Submissions List */}
@@ -355,7 +470,7 @@ const SubmissionView = () => {
               <div className="text-center py-16 rounded-[2rem] bg-indigo-50/30 border border-dashed border-indigo-200/80 space-y-2">
                 <FileText size={24} className="mx-auto text-indigo-400 mb-1" />
                 <p className="text-xs font-semibold text-slate-800">No Submissions Found</p>
-                <p className="text-[11px] text-slate-500 max-w-xs mx-auto">No submissions match the current filter criteria.</p>
+                <p className="text-[11px] text-slate-500 max-w-xs mx-auto">No submissions match the current filter or search criteria.</p>
               </div>
             )}
           </div>
@@ -363,6 +478,37 @@ const SubmissionView = () => {
       ) : (
         <div className="text-center py-16">
           <p className="text-xs text-slate-500">Assignment not found.</p>
+        </div>
+      )}
+
+      {/* Download PDF Confirmation Modal */}
+      {showDownloadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-950/20 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 border border-indigo-100 shadow-xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto border border-indigo-100">
+              <Download size={22} />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-slate-900">Download Submissions PDF</h4>
+              <p className="text-xs text-slate-500">Would you like to export a PDF document containing student names, campus IDs, submission dates, and grades?</p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => setShowDownloadModal(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-indigo-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPdf}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-md shadow-indigo-100 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {isGeneratingPdf && <Loader2 size={13} className="animate-spin" />}
+                <span>{isGeneratingPdf ? 'Exporting...' : 'Export PDF'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
