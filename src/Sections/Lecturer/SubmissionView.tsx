@@ -272,7 +272,7 @@ const SubmissionView = () => {
           className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer shrink-0"
         >
           <Download size={15} />
-          <span>Download Submissions</span>
+          <span>Download Submits</span>
         </button>
       </div>
 
