@@ -386,6 +386,7 @@ export default function StudentSettings() {
                     <input 
                       type="text"
                       disabled={role == 'student'}
+                      
                       value={campusId}
                       onChange={(e) => setCampusId(e.target.value)}
                       placeholder="e.g. MTU/2024/1234"
