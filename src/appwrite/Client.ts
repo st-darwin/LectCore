@@ -23,6 +23,7 @@ export const appwriteConfig = {
   quizzesId: import.meta.env.VITE_APPWRITE_QUIZZES_ID,
    studyNotesId: import.meta.env.VITE_APPWRITE_STUDYNOTES_ID,
   quizAttemptsId: import.meta.env.VITE_APPWRITE_QUIZ_ATTEMPT_ID,
+  courseDiscussionsId: import.meta.env.VITE_APPWRITE_COURSE_DISCUSSIONS_ID,
  
 
 

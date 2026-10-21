@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileText, Upload, Trash2, Download, ArrowLeft, Loader2, Plus, Search, FileSpreadsheet, FileCode, File, X, Ghost } from 'lucide-react';
+import { FileText, Upload, Trash2, Download, ArrowLeft, Loader2, Plus, Search, FileSpreadsheet, FileCode, File, X, Ghost, MessageSquare } from 'lucide-react';
 import Header from '../../Components/Header';
 import { databases, storage, appwriteConfig, account } from '../../appwrite/Client';
 import { ID, Query } from 'appwrite';
@@ -30,7 +30,6 @@ const CourseDetail = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
- 
 
   // Search state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -58,7 +57,6 @@ const CourseDetail = () => {
       setCourse(response as unknown as Course);
     } catch (err) {
       console.error("Failed to fetch course:", err);
-      // setError("Course not found.");
     }
   };
 
@@ -93,7 +91,6 @@ const CourseDetail = () => {
     relatedId?: string;
   }) => {
     try {
-      // 1. Fetch students enrolled in this course
       const enrollments = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.enrollmentsId,
@@ -102,7 +99,6 @@ const CourseDetail = () => {
 
       if (enrollments.documents.length === 0) return;
 
-      // 2. Create notification records for each student in parallel
       const notificationPromises = enrollments.documents.map((enrollment) => {
         const studentId = enrollment.studentId;
         
@@ -122,7 +118,6 @@ const CourseDetail = () => {
       });
 
       await Promise.all(notificationPromises);
-      console.log(`Successfully dispatched material notifications to ${enrollments.documents.length} students.`);
     } catch (error) {
       console.error("Failed to trigger student notifications:", error);
     }
@@ -137,20 +132,17 @@ const CourseDetail = () => {
       const user = await account.get();
       if (!user) throw new Error("Unauthorized");
 
-      // 1. Upload file to Appwrite Storage
       const uploadedFile = await storage.createFile(
         appwriteConfig.storageId,
         ID.unique(),
         file
       );
 
-      // 2. Get public file view/download URL
       const fileUrl = storage.getFileView(
         appwriteConfig.storageId,
         uploadedFile.$id
       ).toString();
 
-      // 3. Save document reference in course_materials collection
       const response = await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.courseMaterialsId,
@@ -165,7 +157,6 @@ const CourseDetail = () => {
         }
       );
 
-      // 4. Fire notifications to all students enrolled in this course
       await sendCourseNotificationToStudents({
         courseId: id,
         title: `New Material: ${course ? course.courseCode : 'Course'}`,
@@ -174,7 +165,6 @@ const CourseDetail = () => {
         relatedId: response.courseId,
       });
 
-      // Reset form & refresh
       setTitle('');
       setFile(null);
       setIsModalOpen(false);
@@ -213,15 +203,14 @@ const CourseDetail = () => {
     return <File className="text-indigo-500" size={18} />;
   };
 
-  // Filter materials based on search input
   const filteredMaterials = materials.filter((mat) =>
     mat.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div>
+    <div className="space-y-5 sm:space-y-6 pb-16 px-3 sm:px-0">
       {/* Back Navigation */}
-      <div className="mb-4">
+      <div>
         <button
           onClick={() => navigate('/lecturer/courses')}
           className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer group"
@@ -240,31 +229,42 @@ const CourseDetail = () => {
       />
 
       {/* Action Bar / Controls Header */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
           <h3 className="text-xs font-extrabold text-slate-900 tracking-wider uppercase">Uploaded Resources</h3>
           <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-bold border border-indigo-100">
             {materials.length} {materials.length === 1 ? 'File' : 'Files'}
           </span>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer scale-100 hover:scale-[1.02]"
-        >
-          <Plus size={15} />
-          <span>Add Material</span>
-        </button>
+
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <button
+            onClick={() => navigate(`/lecturer/courses/${id}/discussions`)}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-95"
+          >
+            <MessageSquare size={15} className="text-indigo-600" />
+            <span>Q&A Board</span>
+          </button>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
+          >
+            <Plus size={15} />
+            <span>Add Material</span>
+          </button>
+        </div>
       </div>
 
       {/* Enhanced Search Bar */}
-      <div className="mb-8 relative group">
+      <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={16} />
         <input
           type="text"
           placeholder="Search materials by title..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-white/80 backdrop-blur-xl border border-slate-200/80 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-[0_4px_20px_rgb(0,0,0,0.02)] transition-all"
+          className="w-full pl-11 pr-10 py-3.5 rounded-xl sm:rounded-2xl bg-white/80 backdrop-blur-xl border border-slate-200/80 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-[0_4px_20px_rgb(0,0,0,0.02)] transition-all"
         />
         {searchTerm && (
           <button 
@@ -278,29 +278,30 @@ const CourseDetail = () => {
 
       {/* Materials Grid / Content List */}
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+        <div className="flex items-center justify-center py-28 sm:py-36 bg-white/80 backdrop-blur-xl rounded-[2rem] sm:rounded-[2.5rem] border border-slate-100 shadow-xs">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 text-indigo-600 animate-spin" />
+            <p className="text-xs font-semibold text-slate-400 tracking-wide">Loading course materials...</p>
+          </div>
         </div>
       ) : filteredMaterials.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
           {filteredMaterials.map((mat) => (
             <div
               key={mat.$id}
-              className="group p-5 rounded-[2rem] bg-gradient-to-b from-white/90 to-white/60 backdrop-blur-xl border border-slate-200/70 shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-xl hover:border-indigo-200 transition-all duration-300 flex items-center justify-between gap-4"
+              className="group p-4 sm:p-5 rounded-[1.75rem] sm:rounded-[2rem] bg-gradient-to-b from-white/90 to-white/60 backdrop-blur-xl border border-slate-200/70 shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-xl hover:border-indigo-200 transition-all duration-300 flex items-center justify-between gap-3"
             >
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50/80 border border-indigo-100/50 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-indigo-50/80 border border-indigo-100/50 flex items-center justify-center shrink-0 shadow-xs">
                   {getFileIcon(mat.title)}
                 </div>
                 <div className="min-w-0 space-y-1">
                   <h4 className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors" title={mat.title}>
                     {mat.title}
                   </h4>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-medium text-slate-400">
-                      Added {new Date(mat.$createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
+                  <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 block">
+                    Added {new Date(mat.$createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
                 </div>
               </div>
 
@@ -326,14 +327,14 @@ const CourseDetail = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-20 rounded-[2.5rem] bg-white/40 border border-dashed border-slate-200/80 backdrop-blur-sm">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-sm">
+        <div className="text-center py-16 sm:py-20 rounded-[2rem] sm:rounded-[2.5rem] bg-white/40 border border-dashed border-slate-200/80 backdrop-blur-sm px-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-sm">
             <Ghost size={24} />
           </div>
-          <h3 className="text-sm font-bold text-slate-900 mb-1">
+          <h3 className="text-xs sm:text-sm font-bold text-slate-900 mb-1">
             {searchTerm ? `No materials found matching "${searchTerm}"` : "No course materials uploaded yet"}
           </h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto mb-6">
+          <p className="text-[11px] sm:text-xs text-slate-400 max-w-sm mx-auto mb-5 sm:mb-6">
             {searchTerm ? "Try adjusting your keyword query to locate your files." : "Get started by sharing your lecture notes, assignments, or syllabus slides with students."}
           </p>
           {!searchTerm && (
@@ -351,11 +352,11 @@ const CourseDetail = () => {
       {/* Enhanced Upload Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Upload Course Material</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Share lecture slides, notes, or assignments.</p>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900">Upload Course Material</h3>
+                <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">Share lecture slides, notes, or assignments.</p>
               </div>
               <button 
                 onClick={() => setIsModalOpen(false)}
@@ -374,14 +375,14 @@ const CourseDetail = () => {
                   placeholder="e.g. Week 1: Introduction Slides"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-all"
+                  className="w-full px-3.5 sm:px-4 py-3 rounded-xl sm:rounded-2xl bg-slate-50 border border-slate-200/80 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-indigo-500 transition-all"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Select File</label>
                 <div 
-                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                  className={`border-2 border-dashed rounded-xl sm:rounded-2xl p-5 sm:p-6 text-center transition-all ${
                     dragActive ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'
                   }`}
                   onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -414,18 +415,18 @@ const CourseDetail = () => {
                 </div>
               </div>
 
-              <div className="pt-3 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-end gap-2.5 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+                  className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all cursor-pointer"
                 >
                   {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload size={14} />}
                   <span>{uploading ? 'Uploading File...' : 'Upload File'}</span>

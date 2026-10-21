@@ -44,7 +44,8 @@ import ViewAnalytics from "./Sections/Lecturer/ViewAnalytics";
 import NotifcationView from "./Sections/Student/NotifcationView";
 import Flashcards from "./Sections/Lecturer/Flashcards";
 import PomodoroTimer from "./Sections/Student/PomodoroTimer";
-
+import CourseDiscussions from "./Sections/Student/CourseDiscussion";
+import LecturerCourseDiscussions from "./Sections/Lecturer/LecturerCourseDiscussions";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -79,7 +80,9 @@ const router = createBrowserRouter(
         <Route path="courses" element={<CourseView />} />
         <Route path="course/create" element={<CreateCourse />} />
         <Route path="courses/:id" element={<CourseDetail />} />
+
         <Route path="courses/edit/:id" element={<CourseEdit />} />
+       <Route path="courses/:courseId/discussions" element={<LecturerCourseDiscussions />} />
         <Route path="students" element={<MyStudents />} />
         <Route path="announcements" element={<Announcements />} loader={AnnouncementLoader} />
         <Route path="assignments" element={<AssignmentView />} />
@@ -89,6 +92,7 @@ const router = createBrowserRouter(
         <Route path="settings" element={<StudentSettings/>} />
         <Route path="analysis" element={<ViewAnalytics/>}/>
         <Route path="flashcards" element={<Flashcards/>} />
+
       </Route>
 
       {/* Student Routes */}
@@ -109,6 +113,7 @@ const router = createBrowserRouter(
          <Route path="pomodoro-timer" element={<PomodoroTimer/>} />
          {/* Added Study Notes Route */}
          <Route path="notes/:courseId" element={<StudyNotes />} />
+         <Route path="courses/:courseId/discussions" element={<CourseDiscussions />} />
       </Route>
     </>
   ),

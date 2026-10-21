@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive, Bookmark } from 'lucide-react';
+import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive, Bookmark, MessageSquare } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
 
@@ -259,13 +259,23 @@ const StudentCourseDetail = () => {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
             {isEnrolled && (
-              <button
-                onClick={() => navigate(`/student/notes/${courseId}`)}
-                className="w-full sm:w-auto px-4 py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-              >
-                <Bookmark size={15} className="text-indigo-600" />
-                <span>My Study Notes</span>
-              </button>
+              <>
+                <button
+                  onClick={() => navigate(`/student/notes/${courseId}`)}
+                  className="w-full sm:w-auto px-4 py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <Bookmark size={15} className="text-indigo-600" />
+                  <span>My Study Notes</span>
+                </button>
+
+                <button
+                  onClick={() => navigate(`/student/courses/${courseId}/discussions`)}
+                  className="w-full sm:w-auto px-4 py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <MessageSquare size={15} className="text-indigo-600" />
+                  <span>Q&A Board</span>
+                </button>
+              </>
             )}
 
             <button
