@@ -19,8 +19,12 @@ export const appwriteConfig = {
   messagesId : import.meta.env.VITE_APPWRITE_MESSAGES_COLLECTION_ID,
   flashcardDecksId:import.meta.env.VITE_APPWRITE_FLASHCARD_DECKS_ID,
   flashcardsId: import.meta.env.VITE_APPWRITE_FLASHCARD_ID,
-  studySessionsId: import.meta.env.VITE_APPWRITE_STUDY_SESSIONS_ID
-  
+  studySessionsId: import.meta.env.VITE_APPWRITE_STUDY_SESSIONS_ID,
+  quizzesId: import.meta.env.VITE_APPWRITE_QUIZZES_ID,
+   studyNotesId: import.meta.env.VITE_APPWRITE_STUDYNOTES_ID,
+  quizAttemptsId: import.meta.env.VITE_APPWRITE_QUIZ_ATTEMPT_ID,
+ 
+
 
 
 }

@@ -5,7 +5,7 @@ import LecturerLayout, { Loader as lecturerLoader } from "./Sections/Lecturer/Le
 import AdminLayout, { Loader as adminLoader } from "./Sections/Admin/AdminLayout";
 import StudentLayout, { Loader as studentLoader } from "./Sections/Student/StudentLayout";
 import LecturerDashboard, { Loader as DashbaordLoader } from "./Sections/Lecturer/LecturerDashboard";
-
+import StudyNotes from "./Sections/Student/StudyNotes";
 import CreateCourse from "./Sections/Lecturer/CreateCourse";
 import CourseView from "./Sections/Lecturer/CourseView";
 import CourseDetail from "./Sections/Lecturer/CourseDetail";
@@ -49,38 +49,31 @@ import PomodoroTimer from "./Sections/Student/PomodoroTimer";
 const router = createBrowserRouter(
   createRoutesFromElements(
     <>
-      {/* Redirect the base URL to login to prevent 404 blank pages */}
       <Route path="/" element={<Navigate to="/login" replace />} />
-      
-      {/* Auth Public Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/sign-up" element={<Signup />} />
 
-      {/* Admin Layout & Nested Routes */}
+      {/* Admin Routes */}
       <Route path="/admin" element={<AdminLayout />} loader={adminLoader}>
         <Route index element={<AdminDashboard />} />
         <Route path="users" element={<UsersView />} />
         <Route path="users/edit/:id" element={<EditUser />} />
         <Route path="users/new" element={<CreateUser />} />
-        <Route path="courses"  element={<AdminCourseView />} />
+        <Route path="courses" element={<AdminCourseView />} />
         <Route path="courses/:courseId/materials" element={<ViewCourseMaterials/>} />
-        <Route  path="courses/:courseId/materials/new" element={<UploadNewMaterial/>} loader={UploadLoader}/>
+        <Route path="courses/:courseId/materials/new" element={<UploadNewMaterial/>} loader={UploadLoader}/>
         <Route path="courses/new" element={<CreateNewCourse/>} />
-        <Route  path="materials"  element={<ViewAllMaterials/>}/>
+        <Route path="materials" element={<ViewAllMaterials/>}/>
         <Route path="enrollments" element={<ViewEnrollments/>} />
-        <Route  path="announcements" element={<ViewAnnouncement/>}/> 
-        <Route path="assignments" element={<ViewAssignments/>}  />
+        <Route path="announcements" element={<ViewAnnouncement/>}/> 
+        <Route path="assignments" element={<ViewAssignments/>} />
         <Route path="logs" element={<SysLog/>} />
         <Route path="settings" element={<Settings/>} />
         <Route path="chat" element={<Chat/>} />
-        <Route  path="profile" element={<StudentSettings/>} />
-
-        
-
-
+        <Route path="profile" element={<StudentSettings/>} />
       </Route>
 
-      {/* Lecturer Layout & Nested Routes */}
+      {/* Lecturer Routes */}
       <Route path="/lecturer" element={<LecturerLayout />} loader={lecturerLoader}>
         <Route index element={<LecturerDashboard />} loader={DashbaordLoader} />
         <Route path="courses" element={<CourseView />} />
@@ -93,34 +86,35 @@ const router = createBrowserRouter(
         <Route path="assignments/create" element={<CreateAssignment />} />
         <Route path="submissions/:assignmentId" element={<SubmissionsView />} />
         <Route path="chat" element={<Chat/>} />
-        <Route  path="settings" element={<StudentSettings/>} />
-        <Route  path="analysis"  element={<ViewAnalytics/>}/>
+        <Route path="settings" element={<StudentSettings/>} />
+        <Route path="analysis" element={<ViewAnalytics/>}/>
         <Route path="flashcards" element={<Flashcards/>} />
-
-
       </Route>
 
-      {/* Student Layout & Nested Routes */}
+      {/* Student Routes */}
       <Route path="/student" element={<StudentLayout />} loader={studentLoader}>
          <Route index element={<StudentDashboard />} />
          <Route path="courses" element={<StudentCourseView/>} />
-          <Route path="courses/browse" element={<StudentCourseBrowse/>} />
-          <Route path="courses/:courseId" element={<StudentCourseDetail/>} />
-          <Route path="announcements" element={<StudentAnnouncement/>} />
-          <Route path="assignments" element={<StudentAssignmentsView/>} />
-          <Route path="assignment/:assignmentId" element={<StudentAssignmentSubmit/>} />
-          <Route path="real-time-sync" element={<Log/>}  />
-          <Route path="chat" element={<Chat/>} />
-         <Route  path="settings" element={<StudentSettings/>} />
+         <Route path="courses/browse" element={<StudentCourseBrowse/>} />
+         <Route path="courses/:courseId" element={<StudentCourseDetail/>} />
+         <Route path="announcements" element={<StudentAnnouncement/>} />
+         <Route path="assignments" element={<StudentAssignmentsView/>} />
+         <Route path="assignment/:assignmentId" element={<StudentAssignmentSubmit/>} />
+         <Route path="real-time-sync" element={<Log/>} />
+         <Route path="chat" element={<Chat/>} />
+         <Route path="settings" element={<StudentSettings/>} />
          <Route path="grades" element={<ViewGrades/>} />
          <Route path="notifications" element={<NotifcationView />} />
          <Route path="flashcards" element={<Flashcards/>} />
          <Route path="pomodoro-timer" element={<PomodoroTimer/>} />
-        {/* Once you build student pages, add them here like this: */}
-        {/* <Route index element={<StudentDashboard />} /> */}
+         {/* Added Study Notes Route */}
+         <Route path="notes/:courseId" element={<StudyNotes />} />
       </Route>
     </>
-  )
+  ),
+  {
+   
+  }
 );
 
 export default function App() {

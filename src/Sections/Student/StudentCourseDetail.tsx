@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive } from 'lucide-react';
+import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive, Bookmark } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
 
@@ -170,9 +170,9 @@ const StudentCourseDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-36 bg-white/80 backdrop-blur-xl rounded-[2.5rem] border border-slate-100 shadow-2xs">
+      <div className="flex items-center justify-center py-28 sm:py-36 bg-white/80 backdrop-blur-xl rounded-[2rem] sm:rounded-[2.5rem] border border-slate-100 shadow-xs">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+          <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 text-indigo-600 animate-spin" />
           <p className="text-xs font-semibold text-slate-400 tracking-wide">Loading course details...</p>
         </div>
       </div>
@@ -181,17 +181,17 @@ const StudentCourseDetail = () => {
 
   if (!course) {
     return (
-      <div className="max-w-4xl mx-auto py-24 text-center space-y-5 bg-white/90 backdrop-blur-xl rounded-[2.5rem] border border-slate-100 shadow-xs p-8">
-        <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto border border-rose-100">
+      <div className="max-w-4xl mx-auto py-20 sm:py-24 text-center space-y-5 bg-white/90 backdrop-blur-xl rounded-[2rem] sm:rounded-[2.5rem] border border-slate-100 shadow-xs p-6 sm:p-8">
+        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto border border-rose-100">
           <BookOpen size={20} />
         </div>
         <div className="space-y-1">
-          <h2 className="text-base font-bold text-slate-800">Course Not Found</h2>
+          <h2 className="text-sm sm:text-base font-bold text-slate-800">Course Not Found</h2>
           <p className="text-xs text-slate-500">The course you are looking for might have been removed or is unavailable.</p>
         </div>
         <button
           onClick={() => navigate(-1)}
-          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl sm:rounded-2xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
         >
           Go Back
         </button>
@@ -202,91 +202,104 @@ const StudentCourseDetail = () => {
   const isEnrolled = !!enrollmentId;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-16 animate-in fade-in duration-300 px-2 sm:px-0">
+    <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 pb-16 animate-in fade-in duration-300 px-3 sm:px-0">
+      
       {/* Top Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => navigate(-1)}
-          className="group inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-600 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+          className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-600 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
         >
           <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
           <span>Back to Courses</span>
         </button>
 
-        <div className="flex items-center gap-2">
-          <span className="px-3.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100/80 text-xs font-bold text-indigo-700 shadow-2xs">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
+          <span className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100/80 text-[11px] sm:text-xs font-bold text-indigo-700 shadow-2xs shrink-0">
             {course.courseCode}
           </span>
-          <span className="px-3.5 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200/80 text-xs font-bold text-slate-700 shadow-2xs">
+          <span className="px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200/80 text-[11px] sm:text-xs font-bold text-slate-700 shadow-2xs shrink-0">
             {course.level} Level
           </span>
         </div>
       </div>
 
       {/* Hero Banner Card - Light Themed */}
-      <div className="relative overflow-hidden p-6 sm:p-10 rounded-[2.5rem] bg-gradient-to-br from-indigo-50/80 via-white to-sky-50/50 border border-indigo-100/80 shadow-xl shadow-indigo-100/30 space-y-8">
-        <div className="absolute -right-16 -top-16 w-64 h-64 bg-indigo-200/40 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-blue-100/40 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden p-5 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-br from-indigo-50/80 via-white to-sky-50/50 border border-indigo-100/80 shadow-xl shadow-indigo-100/30 space-y-6 sm:space-y-8">
+        <div className="absolute -right-16 -top-16 w-48 h-48 sm:w-64 sm:h-64 bg-indigo-200/40 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -left-16 -bottom-16 w-48 h-48 sm:w-64 sm:h-64 bg-blue-100/40 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 space-y-4">
+        <div className="relative z-10 space-y-3 sm:space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50/90 backdrop-blur-md border border-indigo-100 text-[11px] font-bold text-indigo-700 shadow-2xs">
             <GraduationCap size={13} className="text-indigo-600" />
             <span>{course.department} Department</span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight text-slate-900 leading-tight">
+          <h1 className="text-xl sm:text-4xl font-semibold tracking-tight text-slate-900 leading-tight">
             {course.courseTitle}
           </h1>
 
-          <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-slate-600 font-medium">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 pt-1 text-xs text-slate-600 font-medium">
             <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/60 shadow-2xs">
-              <User size={14} className="text-indigo-600" />
-              <span>Instructor: <strong className="text-slate-900">{lecturerName}</strong></span>
+              <User size={14} className="text-indigo-600 shrink-0" />
+              <span className="truncate max-w-[200px] sm:max-w-none">Instructor: <strong className="text-slate-900">{lecturerName}</strong></span>
             </div>
             <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/60 shadow-2xs">
-              <Building2 size={14} className="text-indigo-600" />
-              <span>Department: <strong className="text-slate-900">{course.department}</strong></span>
+              <Building2 size={14} className="text-indigo-600 shrink-0" />
+              <span className="truncate max-w-[200px] sm:max-w-none">Dept: <strong className="text-slate-900">{course.department}</strong></span>
             </div>
           </div>
         </div>
 
-        <div className="relative z-10 pt-6 border-t border-indigo-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="relative z-10 pt-5 sm:pt-6 border-t border-indigo-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
             <Layers size={15} className="text-indigo-600 shrink-0" />
-            <span>{isEnrolled ? 'You are actively enrolled in this course.' : 'Enroll now to unlock course resources and materials.'}</span>
+            <span className="line-clamp-1">{isEnrolled ? 'You are actively enrolled in this course.' : 'Enroll now to unlock course resources and materials.'}</span>
           </div>
 
-          <button
-            onClick={handleToggleEnrollment}
-            disabled={actionLoading}
-            className={`px-6 py-3 rounded-2xl font-bold text-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 ${
-              isEnrolled
-                ? 'bg-emerald-50 hover:bg-rose-50 text-emerald-700 hover:text-rose-700 border border-emerald-200 hover:border-rose-200'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/25'
-            }`}
-          >
-            {actionLoading ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : isEnrolled ? (
-              <>
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                <span>Enrolled (Click to Unenroll)</span>
-              </>
-            ) : (
-              <>
-                <Plus size={16} />
-                <span>Enroll in Course</span>
-              </>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+            {isEnrolled && (
+              <button
+                onClick={() => navigate(`/student/notes/${courseId}`)}
+                className="w-full sm:w-auto px-4 py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Bookmark size={15} className="text-indigo-600" />
+                <span>My Study Notes</span>
+              </button>
             )}
-          </button>
+
+            <button
+              onClick={handleToggleEnrollment}
+              disabled={actionLoading}
+              className={`w-full sm:w-auto px-5 sm:px-6 py-3 rounded-xl sm:rounded-2xl font-bold text-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 ${
+                isEnrolled
+                  ? 'bg-emerald-50 hover:bg-rose-50 text-emerald-700 hover:text-rose-700 border border-emerald-200 hover:border-rose-200'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/25'
+              }`}
+            >
+              {actionLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : isEnrolled ? (
+                <>
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <span>Enrolled (Click to Unenroll)</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={16} className="shrink-0" />
+                  <span>Enroll in Course</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Description Section */}
-      <div className="p-6 sm:p-8 rounded-[2.5rem] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-2xs space-y-4">
+      <div className="p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-2xs space-y-3 sm:space-y-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
-            <GraduationCap size={16} />
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shrink-0">
+            <GraduationCap size={15} />
           </div>
           <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Course Description & Overview</h2>
         </div>
@@ -296,15 +309,15 @@ const StudentCourseDetail = () => {
       </div>
 
       {/* Enhanced Course Materials Section */}
-      <div className="p-6 sm:p-8 rounded-[2.5rem] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-2xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] bg-white/90 backdrop-blur-xl border border-slate-100 shadow-2xs space-y-5 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
-              <FileText size={16} />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shrink-0">
+              <FileText size={15} />
             </div>
             <div>
               <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Course Materials & Resources</h2>
-              <p className="text-[11px] text-slate-400">Lecture notes, assignments, and reading materials</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400">Lecture notes, assignments, and reading materials</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -328,19 +341,19 @@ const StudentCourseDetail = () => {
         )}
 
         {!isEnrolled ? (
-          <div className="p-8 rounded-2xl bg-slate-50/80 border border-slate-200/60 text-center space-y-2">
+          <div className="p-6 sm:p-8 rounded-2xl bg-slate-50/80 border border-slate-200/60 text-center space-y-2">
             <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-2 border border-indigo-100">
               <FileText size={18} />
             </div>
             <p className="text-xs font-bold text-slate-800">Content Locked</p>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">Enroll in this course to unlock and download lectures, notes, and study resources.</p>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">Enroll in this course to unlock and download lectures, notes, and study resources.</p>
           </div>
         ) : filteredMaterials.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             {filteredMaterials.map((mat) => (
               <div 
                 key={mat.$id}
-                className="group p-5 rounded-2xl bg-white border border-slate-200/70 hover:border-indigo-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4"
+                className="group p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/70 hover:border-indigo-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-start justify-between gap-3">
@@ -363,7 +376,7 @@ const StudentCourseDetail = () => {
                       href={mat.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs  transition-all shadow-2xs hover:shadow-xs active:scale-95"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs transition-all shadow-2xs hover:shadow-xs active:scale-95"
                     >
                       <Download size={12} />
                       <span>Download</span>
@@ -376,13 +389,13 @@ const StudentCourseDetail = () => {
             ))}
           </div>
         ) : materials.length > 0 ? (
-          <div className="text-center py-10 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-2">
+          <div className="text-center py-10 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-2 px-4">
             <Search size={22} className="mx-auto text-slate-400" />
             <p className="text-xs font-bold text-slate-700">No Matching Materials Found</p>
             <p className="text-[11px] text-slate-400">No files matched your search keyword "{materialSearch}".</p>
           </div>
         ) : (
-          <div className="text-center py-12 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-2">
+          <div className="text-center py-12 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-2 px-4">
             <FileText size={24} className="mx-auto text-slate-400" />
             <p className="text-xs font-bold text-slate-700">No Materials Uploaded Yet</p>
             <p className="text-[11px] text-slate-400">Your instructor has not uploaded lecture notes or resources for this course yet.</p>

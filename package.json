@@ -10,11 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^2.30.0",
+    "@google/generative-ai": "^0.24.1",
     "@tailwindcss/vite": "^4.3.3",
     "appwrite": "^27.0.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "lucide-react": "^1.45.0",
+    "openai": "^7.39.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3",

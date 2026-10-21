@@ -9,7 +9,7 @@ import {
   ArrowLeft,
   Users,
   GraduationCap,
-  Sparkles,
+  
   RotateCw,
   ShieldCheck,
   MoreVertical,
@@ -28,7 +28,8 @@ import {
   Pause,
   Square,
   Pin,
-  Copy
+  Copy,
+  Ghost
 } from 'lucide-react';
 import { client, databases, account, storage, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
@@ -1452,7 +1453,7 @@ export default function Chat() {
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center space-y-2 py-20">
-                    <Sparkles className="w-7 h-7 text-indigo-300 stroke-1" />
+                    <Ghost className="w-7 h-7 text-indigo-300 stroke-1" />
                     <p className="text-xs font-medium text-slate-700">Start the conversation</p>
                     <p className="text-[11px] text-slate-400">Send a message or voice note to begin collaborating securely.</p>
                   </div>
