@@ -1,3 +1,4 @@
+// StudentDashboard.tsx
 import { useState, useEffect } from 'react';
 import { 
   BookOpen, 
@@ -64,7 +65,6 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(true);
   const [userName, setUserName] = useState<string>('Student');
-//  const [userId, setUserId] = useState<string>('');
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [totalEnrolledCount, setTotalEnrolledCount] = useState<number>(0);
   const [recentAnnouncements, setRecentAnnouncements] = useState<Announcement[]>([]);
@@ -97,7 +97,6 @@ const StudentDashboard = () => {
       if (!user) return;
 
       setUserName(user.name || user.email.split('@')[0]);
-      // setUserId(user.$id);
 
       const enrollmentsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
@@ -198,39 +197,40 @@ const StudentDashboard = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-16 animate-in fade-in duration-300 px-3 sm:px-4 lg:px-0 text-slate-600">
       
-      {/* Top Welcome Banner */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50/40 via-white to-sky-50/20 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-indigo-100/50 shadow-xs">
+      {/* Neater, Minimal & Highly Responsive Header Banner */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50/40 via-white to-sky-50/20 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-indigo-100/60 shadow-xs space-y-5">
         <div className="absolute right-[-5%] top-[-20%] w-72 h-72 bg-gradient-to-br from-indigo-100/30 to-sky-100/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/85 border border-indigo-100/60 text-[11px] font-medium text-indigo-600 shadow-2xs">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 min-w-0">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/90 border border-indigo-100/80 text-[11px] font-semibold text-indigo-600 shadow-2xs">
               <Layers size={12} className="text-indigo-500 shrink-0" />
-              <span>Academic Portal • Undergraduate Session</span>
+              <span>Academic Portal</span>
             </div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl tracking-tight text-slate-900 font-semibold">
+            <h1 className="text-xl sm:text-2xl md:text-3xl tracking-tight text-slate-900 font-semibold truncate">
               Welcome back, {userName} 👋
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-lg leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-500 max-w-xl leading-relaxed">
               Your academic command center is synchronized. Track your active courses, assignments, and study schedule below.
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
+          {/* Search & Actions Toolbar */}
+          <div className="flex items-center gap-2.5 sm:gap-3 w-full lg:w-auto shrink-0">
+            <div className="relative flex-1 sm:w-64">
               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search courses..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/80 border border-slate-200/80 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-2xs"
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/90 border border-slate-200/80 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-2xs"
               />
             </div>
             
             <button 
               onClick={() => navigate('/student/announcements')}
-              className="w-10 h-10 rounded-xl bg-white/80 hover:bg-white border border-slate-200/80 flex items-center justify-center text-slate-600 hover:text-indigo-600 transition-all cursor-pointer relative shrink-0 shadow-2xs"
+              className="w-10 h-10 rounded-xl bg-white/90 hover:bg-white border border-slate-200/80 flex items-center justify-center text-slate-600 hover:text-indigo-600 transition-all cursor-pointer relative shrink-0 shadow-2xs"
               title="View Announcements"
             >
               <Bell size={16} />
@@ -300,13 +300,13 @@ const StudentDashboard = () => {
                 <div className="w-7 h-7 rounded-lg bg-indigo-50/60 text-indigo-600 flex items-center justify-center border border-indigo-100/50">
                   <BookOpen size={14} />
                 </div>
-                <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">My Enrolled Courses</h2>
+                <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">My Courses</h2>
               </div>
               <button 
                 onClick={() => navigate('/student/courses')} 
                 className="text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition-colors cursor-pointer"
               >
-                <span>Browse All</span>
+                <span>Browse</span>
                 <ArrowRight size={13} />
               </button>
             </div>

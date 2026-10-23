@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLoaderData, useNavigate } from 'react-router-dom';
-import { BookOpen, FileText, ArrowRight,ChevronRight , Loader2, Sparkles, TrendingUp, Bell, Award, Calendar, CheckCircle2, Clock, Plus, MessageSquare, ShieldCheck, GraduationCap } from 'lucide-react';
+import { BookOpen, FileText, ArrowRight, ChevronRight, Loader2, Sparkles, TrendingUp, Bell, Award, Calendar, CheckCircle2, Clock, Plus, MessageSquare, ShieldCheck, GraduationCap } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
 
@@ -90,12 +90,12 @@ const LecturerDashboard = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-16 animate-in fade-in duration-300 px-3 sm:px-4 lg:px-0 text-slate-600">
       
-      {/* Top Welcome Banner */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50/40 via-white to-sky-50/20 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-indigo-100/50 shadow-xs">
+      {/* Top Welcome Banner (Refined & Fully Responsive for Tablet/Mobile/Desktop) */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50/40 via-white to-sky-50/20 backdrop-blur-xl p-5 sm:p-7 md:p-8 rounded-[2rem] sm:rounded-3xl border border-indigo-100/50 shadow-xs">
         <div className="absolute right-[-5%] top-[-20%] w-72 h-72 bg-gradient-to-br from-indigo-100/30 to-sky-100/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+          <div className="space-y-2.5 max-w-2xl">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/85 border border-indigo-100/60 text-[11px] font-medium text-indigo-600 shadow-2xs">
                 <Calendar size={12} className="text-indigo-500 shrink-0" />
@@ -111,23 +111,23 @@ const LecturerDashboard = () => {
               <h1 className="text-xl sm:text-2xl md:text-3xl tracking-tight text-slate-900 font-semibold">
                 Welcome back, {lecturerName} 👋
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 max-w-xl leading-relaxed">
-                Streamline your course delivery, publish real-time announcements, and empower student academic progression from your centralized faculty control center.
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                Streamline course delivery, publish real-time announcements, and empower student academic progression from your centralized faculty control center.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap pt-1 lg:pt-0">
             <button
               onClick={() => navigate('/lecturer/announcements')}
-              className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-indigo-600 text-xs font-medium border border-indigo-200/70 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-indigo-600 text-xs font-semibold border border-indigo-200/70 shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
             >
               <MessageSquare size={14} className="text-indigo-500" />
               <span>Broadcast Update</span>
             </button>
             <button
               onClick={() => navigate('/lecturer/courses')}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
             >
               <GraduationCap size={14} />
               <span>Manage Courses</span>

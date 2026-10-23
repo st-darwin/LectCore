@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { type Notification } from '../types/notification';
 import { notificationService } from '../services/notificationService';
 import { CheckCheck, BellOff, ExternalLink, Bell, X } from 'lucide-react';
@@ -20,7 +20,12 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   onRefresh,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   if (!isOpen) return null;
+
+  // Detect whether the user is currently in the lecturer portal or student portal based on URL path
+  const isLecturerPortal = location.pathname.startsWith('/lecturer');
+  const portalPrefix = isLecturerPortal ? '/lecturer' : '/student';
 
   // Filter to show ONLY unread notifications in the dropdown
   const unreadNotifications = notifications.filter((n) => !n.isRead);
@@ -45,11 +50,16 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     const relatedId = notification.relatedId;
 
     if (type === 'ANNOUNCEMENT' || type === 'ANNOUNCEMENTS') {
-      navigate('/student/announcements');
+      navigate(`${portalPrefix}/announcements`);
     } else if (type === 'ASSIGNMENT' || type === 'ASSIGNMENTS') {
-      navigate(relatedId ? `/student/assignment/${relatedId}` : '/student/assignments');
+      navigate(relatedId ? `${portalPrefix}/assignment/${relatedId}` : `${portalPrefix}/assignments`);
     } else if (type === 'COURSE' || type === 'MATERIAL' || type === 'MATERIALS') {
-      navigate(relatedId ? `/student/courses/${relatedId}` : '/student/courses');
+      navigate(relatedId ? `${portalPrefix}/courses/${relatedId}` : `${portalPrefix}/courses`);
+    } else if (type === 'DISCUSSION' || type === 'DISCUSSIONS' || type === 'Q&A') {
+      navigate(relatedId ? `${portalPrefix}/courses/${relatedId}/discussions` : `${portalPrefix}/courses`);
+    } else {
+      // Default safe redirect
+      navigate(`${portalPrefix}`);
     }
   };
 

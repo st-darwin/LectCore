@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getCourseDiscussions, createDiscussionPost, deleteDiscussionPost, type DiscussionPost } from '../../services/discussionService';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
+import { ID, Query } from 'appwrite';
 import { MessageSquare, Plus, Trash2, Send, ArrowLeft, Loader2, UserCheck, Sparkles, X, MessageCircle } from 'lucide-react';
 
 export default function CourseDiscussions() {
@@ -56,6 +57,79 @@ export default function CourseDiscussions() {
     }
   };
 
+  // Helper to trigger notifications for enrolled peers AND the course lecturer (excluding the sender)
+  const notifyEnrolledStudents = async ({
+    title,
+    message,
+    type = 'DISCUSSION',
+    relatedId,
+  }: {
+    title: string;
+    message: string;
+    type?: string;
+    relatedId?: string;
+  }) => {
+    try {
+      if (!courseId || !userId) return;
+
+      // 1. Fetch course details to locate the instructor/lecturer ID
+      let lecturerId: string | null = null;
+      try {
+        const courseDoc: any = await databases.getDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.courseId,
+          courseId
+        );
+        lecturerId = courseDoc.lecturerId || courseDoc.instructorId || null;
+      } catch (err) {
+        console.warn("Could not fetch course lecturer for notification", err);
+      }
+
+      // 2. Fetch all student enrollments for this course
+      const enrollments = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.enrollmentsId,
+        [Query.equal('courseId', courseId)]
+      );
+
+      // 3. Compile a unique list of recipients (Enrolled Students + Lecturer, excluding the sender)
+      const recipientIds = new Set<string>();
+
+      enrollments.documents.forEach((enrollment) => {
+        if (enrollment.studentId !== userId) {
+          recipientIds.add(enrollment.studentId);
+        }
+      });
+
+      if (lecturerId && lecturerId !== userId) {
+        recipientIds.add(lecturerId);
+      }
+
+      if (recipientIds.size === 0) return;
+
+      // 4. Create notification documents for all targets concurrently
+      const notificationPromises = Array.from(recipientIds).map((targetUserId) => {
+        return databases.createDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.notificationsId,
+          ID.unique(),
+          {
+            userId: targetUserId,
+            title,
+            message,
+            type,
+            relatedId: relatedId || courseId,
+            isRead: false,
+          }
+        );
+      });
+
+      await Promise.all(notificationPromises);
+    } catch (error) {
+      console.error('Failed to trigger discussion notification:', error);
+    }
+  };
+
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim() || !courseId || !userId) return;
@@ -70,6 +144,15 @@ export default function CourseDiscussions() {
         title,
         content,
       });
+
+      // Send notifications to enrolled peers and the lecturer
+      await notifyEnrolledStudents({
+        title: `New Discussion: ${courseCode}`,
+        message: `${userName} started a topic: "${title.trim()}"`,
+        type: 'DISCUSSION',
+        relatedId: courseId,
+      });
+
       setTitle('');
       setContent('');
       const data = await getCourseDiscussions(courseId);
@@ -94,6 +177,15 @@ export default function CourseDiscussions() {
         title: `Re: ${parentPost.title}`,
         content: replyContent,
       });
+
+      // Send notifications to enrolled peers and the lecturer
+      await notifyEnrolledStudents({
+        title: `New Reply: ${courseCode}`,
+        message: `${userName} replied on thread "${parentPost.title}"`,
+        type: 'DISCUSSION',
+        relatedId: courseId,
+      });
+
       setReplyContent('');
       setReplyingToId(null);
       const data = await getCourseDiscussions(courseId);
@@ -142,7 +234,7 @@ export default function CourseDiscussions() {
         </button>
 
         <span className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100/80 text-[11px] sm:text-xs font-bold text-indigo-700 shadow-2xs truncate max-w-[180px] sm:max-w-none">
-          {courseCode} • Q&A Board
+          {courseCode} Q&A Board
         </span>
       </div>
 

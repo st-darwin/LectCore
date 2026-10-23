@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getCourseDiscussions, createDiscussionPost, deleteDiscussionPost, type DiscussionPost } from '../../services/discussionService';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
+import { ID, Query } from 'appwrite';
 import { MessageSquare, Plus, Trash2, Send, ArrowLeft, Loader2, UserCheck, Sparkles, ShieldCheck, X, MessageCircle } from 'lucide-react';
 
 export default function LecturerCourseDiscussions() {
@@ -56,6 +57,51 @@ export default function LecturerCourseDiscussions() {
     }
   };
 
+  // Helper to trigger notifications for enrolled students
+  const notifyEnrolledStudents = async ({
+    title,
+    message,
+    type = 'DISCUSSION',
+    relatedId,
+  }: {
+    title: string;
+    message: string;
+    type?: string;
+    relatedId?: string;
+  }) => {
+    try {
+      if (!courseId) return;
+
+      const enrollments = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.enrollmentsId,
+        [Query.equal('courseId', courseId)]
+      );
+
+      if (enrollments.documents.length === 0) return;
+
+      const notificationPromises = enrollments.documents.map((enrollment) => {
+        return databases.createDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.notificationsId,
+          ID.unique(),
+          {
+            userId: enrollment.studentId,
+            title,
+            message,
+            type,
+            relatedId: relatedId || courseId,
+            isRead: false,
+          }
+        );
+      });
+
+      await Promise.all(notificationPromises);
+    } catch (error) {
+      console.error('Failed to trigger discussion notification:', error);
+    }
+  };
+
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim() || !courseId || !userId) return;
@@ -70,6 +116,15 @@ export default function LecturerCourseDiscussions() {
         title,
         content,
       });
+
+      // Send notifications to enrolled students
+      await notifyEnrolledStudents({
+        title: `Lecturer Announcement: ${courseCode}`,
+        message: `${lecturerName} posted: "${title.trim()}"`,
+        type: 'DISCUSSION',
+        relatedId: courseId,
+      });
+
       setTitle('');
       setContent('');
       const data = await getCourseDiscussions(courseId);
@@ -94,6 +149,15 @@ export default function LecturerCourseDiscussions() {
         title: `Re: ${parentPost.title}`,
         content: replyContent,
       });
+
+      // Send notifications to enrolled students
+      await notifyEnrolledStudents({
+        title: `Lecturer Response: ${courseCode}`,
+        message: `${lecturerName} answered on thread "${parentPost.title}"`,
+        type: 'DISCUSSION',
+        relatedId: courseId,
+      });
+
       setReplyContent('');
       setReplyingToId(null);
       const data = await getCourseDiscussions(courseId);

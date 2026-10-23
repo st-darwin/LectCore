@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive, Bookmark, MessageSquare } from 'lucide-react';
+import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive, Bookmark, MessageSquare, Eye, X } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
 
@@ -37,6 +37,9 @@ const StudentCourseDetail = () => {
   const [materialSearch, setMaterialSearch] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+
+  // Preview Modal State
+  const [previewFile, setPreviewFile] = useState<CourseMaterial | null>(null);
 
   useEffect(() => {
     if (courseId) {
@@ -202,77 +205,78 @@ const StudentCourseDetail = () => {
   const isEnrolled = !!enrollmentId;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 pb-16 animate-in fade-in duration-300 px-3 sm:px-0">
+    <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 pb-20 sm:pb-16 animate-in fade-in duration-300 px-3 sm:px-4 md:px-0">
       
       {/* Top Navigation */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-600 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
+          className="group inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-600 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
         >
           <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
-          <span>Back to Courses</span>
+          <span className="hidden xs:inline">Back to Courses</span>
+          <span className="xs:hidden">Back</span>
         </button>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
-          <span className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100/80 text-[11px] sm:text-xs font-bold text-indigo-700 shadow-2xs shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <span className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100/80 text-[11px] sm:text-xs font-bold text-indigo-700 shadow-2xs">
             {course.courseCode}
           </span>
-          <span className="px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200/80 text-[11px] sm:text-xs font-bold text-slate-700 shadow-2xs shrink-0">
+          <span className="px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200/80 text-[11px] sm:text-xs font-bold text-slate-700 shadow-2xs">
             {course.level} Level
           </span>
         </div>
       </div>
 
-      {/* Hero Banner Card - Light Themed */}
-      <div className="relative overflow-hidden p-5 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-br from-indigo-50/80 via-white to-sky-50/50 border border-indigo-100/80 shadow-xl shadow-indigo-100/30 space-y-6 sm:space-y-8">
+      {/* Hero Banner Card */}
+      <div className="relative overflow-hidden p-5 sm:p-8 md:p-10 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-br from-indigo-50/80 via-white to-sky-50/50 border border-indigo-100/80 shadow-xl shadow-indigo-100/30 space-y-6 sm:space-y-8">
         <div className="absolute -right-16 -top-16 w-48 h-48 sm:w-64 sm:h-64 bg-indigo-200/40 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -left-16 -bottom-16 w-48 h-48 sm:w-64 sm:h-64 bg-blue-100/40 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 space-y-3 sm:space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50/90 backdrop-blur-md border border-indigo-100 text-[11px] font-bold text-indigo-700 shadow-2xs">
-            <GraduationCap size={13} className="text-indigo-600" />
-            <span>{course.department} Department</span>
+            <GraduationCap size={13} className="text-indigo-600 shrink-0" />
+            <span className="truncate">{course.department} Department</span>
           </div>
 
-          <h1 className="text-xl sm:text-4xl font-semibold tracking-tight text-slate-900 leading-tight">
+          <h1 className="text-xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-slate-900 leading-tight">
             {course.courseTitle}
           </h1>
 
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 pt-1 text-xs text-slate-600 font-medium">
             <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/60 shadow-2xs">
               <User size={14} className="text-indigo-600 shrink-0" />
-              <span className="truncate max-w-[200px] sm:max-w-none">Instructor: <strong className="text-slate-900">{lecturerName}</strong></span>
+              <span className="truncate max-w-[220px] sm:max-w-none">Instructor: <strong className="text-slate-900">{lecturerName}</strong></span>
             </div>
             <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/60 shadow-2xs">
               <Building2 size={14} className="text-indigo-600 shrink-0" />
-              <span className="truncate max-w-[200px] sm:max-w-none">Dept: <strong className="text-slate-900">{course.department}</strong></span>
+              <span className="truncate max-w-[220px] sm:max-w-none">Dept: <strong className="text-slate-900">{course.department}</strong></span>
             </div>
           </div>
         </div>
 
-        <div className="relative z-10 pt-5 sm:pt-6 border-t border-indigo-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="relative z-10 pt-5 sm:pt-6 border-t border-indigo-100/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
             <Layers size={15} className="text-indigo-600 shrink-0" />
             <span className="line-clamp-1">{isEnrolled ? 'You are actively enrolled in this course.' : 'Enroll now to unlock course resources and materials.'}</span>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {isEnrolled && (
               <>
                 <button
                   onClick={() => navigate(`/student/notes/${courseId}`)}
-                  className="w-full sm:w-auto px-4 py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  className="flex-1 sm:flex-none px-4 py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <Bookmark size={15} className="text-indigo-600" />
-                  <span>My Study Notes</span>
+                  <Bookmark size={15} className="text-indigo-600 shrink-0" />
+                  <span>Study Notes</span>
                 </button>
 
                 <button
                   onClick={() => navigate(`/student/courses/${courseId}/discussions`)}
-                  className="w-full sm:w-auto px-4 py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  className="flex-1 sm:flex-none px-4 py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <MessageSquare size={15} className="text-indigo-600" />
+                  <MessageSquare size={15} className="text-indigo-600 shrink-0" />
                   <span>Q&A Board</span>
                 </button>
               </>
@@ -292,7 +296,7 @@ const StudentCourseDetail = () => {
               ) : isEnrolled ? (
                 <>
                   <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                  <span>Enrolled (Click to Unenroll)</span>
+                  <span>Enrolled (Unenroll)</span>
                 </>
               ) : (
                 <>
@@ -359,7 +363,7 @@ const StudentCourseDetail = () => {
             <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">Enroll in this course to unlock and download lectures, notes, and study resources.</p>
           </div>
         ) : filteredMaterials.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
             {filteredMaterials.map((mat) => (
               <div 
                 key={mat.$id}
@@ -377,20 +381,31 @@ const StudentCourseDetail = () => {
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-slate-400">
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold text-slate-400 shrink-0">
                     {mat.$createdAt ? new Date(mat.$createdAt).toLocaleDateString() : 'Resource file'}
                   </span>
+                  
                   {mat.fileUrl ? (
-                    <a
-                      href={mat.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs transition-all shadow-2xs hover:shadow-xs active:scale-95"
-                    >
-                      <Download size={12} />
-                      <span>Download</span>
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPreviewFile(mat)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                      >
+                        <Eye size={12} className="text-slate-500" />
+                        <span>Preview</span>
+                      </button>
+
+                      <a
+                        href={mat.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
+                      >
+                        <Download size={12} />
+                        <span>Download</span>
+                      </a>
+                    </div>
                   ) : (
                     <span className="text-[11px] text-slate-400 italic">No file attached</span>
                   )}
@@ -412,6 +427,63 @@ const StudentCourseDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Neat Minimal Preview Modal */}
+      {previewFile && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 border border-indigo-100">
+                  {getFileIcon(previewFile.fileUrl)}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 truncate">{previewFile.title}</h3>
+                  <p className="text-[10px] text-slate-400 truncate">{course.courseCode} • Resource Preview</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={previewFile.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs active:scale-95"
+                >
+                  <Download size={13} />
+                  <span>Download File</span>
+                </a>
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-all cursor-pointer active:scale-95"
+                  aria-label="Close Preview"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body (Embedded Viewer or Fallback) */}
+            <div className="flex-1 bg-slate-100/60 relative flex items-center justify-center overflow-hidden">
+              {previewFile.fileUrl ? (
+                <iframe
+                  src={previewFile.fileUrl}
+                  title={previewFile.title}
+                  className="w-full h-full border-0"
+                />
+              ) : (
+                <div className="text-center space-y-2 p-6">
+                  <FileText size={32} className="mx-auto text-slate-400" />
+                  <p className="text-xs font-bold text-slate-700">Preview Unavailable</p>
+                  <p className="text-[11px] text-slate-400">This file cannot be rendered directly in the browser.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
