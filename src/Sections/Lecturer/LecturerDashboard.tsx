@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLoaderData, useNavigate } from 'react-router-dom';
-import { BookOpen, FileText, ArrowRight, ChevronRight, Loader2, Sparkles, TrendingUp, Bell, Award, Calendar, CheckCircle2, Clock, Plus, MessageSquare, ShieldCheck, GraduationCap } from 'lucide-react';
+import { BookOpen, FileText, ArrowRight, ChevronRight, Loader2, TrendingUp, Bell, Award, Calendar, CheckCircle2, Clock, Plus, MessageSquare, ShieldCheck, GraduationCap, Layers2 } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
 
@@ -246,7 +246,7 @@ const LecturerDashboard = () => {
             ) : (
               <div className="text-center py-12 bg-slate-50/40 rounded-2xl border border-dashed border-slate-200/80 space-y-2">
                 <div className="w-8 h-8 rounded-xl bg-indigo-50/60 text-indigo-600 flex items-center justify-center mx-auto border border-indigo-100/50">
-                  <Sparkles size={16} />
+                  <Layers2 size={16} />
                 </div>
                 <p className="text-xs font-semibold text-slate-800">No courses assigned yet</p>
                 <p className="text-[11px] text-slate-400">Courses assigned by administration will appear here automatically.</p>
@@ -342,7 +342,7 @@ const LecturerDashboard = () => {
 
               <div className="p-3.5 rounded-2xl bg-indigo-50/20 border border-indigo-100/50 space-y-1">
                 <div className="flex items-center gap-1.5 text-indigo-900">
-                  <Sparkles size={13} className="text-indigo-600" />
+                  <Layers2 size={13} className="text-indigo-600" />
                   <h4 className="text-xs font-medium text-slate-800">Portal Guidelines</h4>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
