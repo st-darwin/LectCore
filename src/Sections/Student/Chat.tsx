@@ -1,3 +1,4 @@
+// note.txt
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageSquare, 
@@ -1493,7 +1494,7 @@ export default function Chat() {
                                   : 'bg-slate-50 border-indigo-400 text-slate-600'
                               }`}>
                                 <span className={`font-medium text-[10px] ${isMe ? 'text-white' : 'text-indigo-500'}`}>
-                                  {repliedMsg.senderId === currentUserId ? 'You' : (senderUser?.name || 'User')}
+                                  {repliedMsg.senderId === currentUserId ? 'You' : (allUsers.find(u => u.userId === repliedMsg.senderId || u.$id === repliedMsg.senderId)?.name || 'User')}
                                 </span>
                                 <p className="truncate opacity-90">{repliedMsg.messageText || 'Attachment'}</p>
                               </div>
@@ -1613,7 +1614,7 @@ export default function Chat() {
                   <div className="flex items-center gap-2.5 truncate text-slate-600 border-l-2 border-indigo-500 pl-2.5 py-0.5">
                     <div className="flex flex-col truncate">
                       <span className="font-medium text-[10px] text-indigo-500">
-                        Replying to message
+                        Replying to {replyingTo.senderId === currentUserId ? 'yourself' : (allUsers.find(u => u.userId === replyingTo.senderId || u.$id === replyingTo.senderId)?.name || 'User')}
                       </span>
                       <span className="truncate text-slate-400 text-[10px]">{replyingTo.messageText || 'Attachment'}</span>
                     </div>

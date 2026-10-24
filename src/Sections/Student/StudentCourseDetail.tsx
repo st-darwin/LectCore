@@ -166,9 +166,28 @@ const StudentCourseDetail = () => {
     if (lower.includes('.pdf')) return <FileText size={15} className="text-rose-500" />;
     if (lower.includes('.doc') || lower.includes('.docx')) return <FileText size={15} className="text-blue-500" />;
     if (lower.includes('.xls') || lower.includes('.xlsx') || lower.includes('.csv')) return <FileSpreadsheet size={15} className="text-emerald-500" />;
+    if (lower.includes('.ppt') || lower.includes('.pptx')) return <FileText size={15} className="text-amber-600" />;
     if (lower.includes('.zip') || lower.includes('.rar') || lower.includes('.tar')) return <Archive size={15} className="text-amber-500" />;
     if (lower.includes('.js') || lower.includes('.ts') || lower.includes('.html')) return <FileCode size={15} className="text-indigo-500" />;
     return <FileText size={15} className="text-indigo-600" />;
+  };
+
+  // Helper to determine iframe preview source based on file format
+  const getPreviewSource = (url: string) => {
+    const lower = url.toLowerCase();
+    // Office documents (Word, Excel, PowerPoint) need an external cloud viewer like Office Online
+    if (
+      lower.includes('.doc') ||
+      lower.includes('.docx') ||
+      lower.includes('.xls') ||
+      lower.includes('.xlsx') ||
+      lower.includes('.ppt') ||
+      lower.includes('.pptx')
+    ) {
+      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+    }
+    // PDFs, images, and text render directly in browser iframe
+    return url;
   };
 
   if (loading) {
@@ -428,7 +447,7 @@ const StudentCourseDetail = () => {
         )}
       </div>
 
-      {/* Neat Minimal Preview Modal */}
+      {/* Universal Document Preview Modal (Supports PDF, Word, PowerPoint, Excel, Images) */}
       {previewFile && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl border border-slate-200 w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
@@ -440,7 +459,7 @@ const StudentCourseDetail = () => {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 truncate">{previewFile.title}</h3>
-                  <p className="text-[10px] text-slate-400 truncate">{course.courseCode} • Resource Preview</p>
+                  <p className="text-[10px] text-slate-400 truncate">{course.courseCode} Resource Preview</p>
                 </div>
               </div>
 
@@ -464,11 +483,11 @@ const StudentCourseDetail = () => {
               </div>
             </div>
 
-            {/* Modal Body (Embedded Viewer or Fallback) */}
+            {/* Modal Body (Universal Document Viewer) */}
             <div className="flex-1 bg-slate-100/60 relative flex items-center justify-center overflow-hidden">
               {previewFile.fileUrl ? (
                 <iframe
-                  src={previewFile.fileUrl}
+                  src={getPreviewSource(previewFile.fileUrl)}
                   title={previewFile.title}
                   className="w-full h-full border-0"
                 />
