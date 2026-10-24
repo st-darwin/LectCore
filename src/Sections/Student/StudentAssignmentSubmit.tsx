@@ -91,7 +91,7 @@ const StudentAssignmemtSubmit = () => {
       const user = await account.get();
       if (!user) return;
 
-      let fileUrl = submission?.fileUrl || '';
+    let fileUrl = (submission as Submission | null)?.fileUrl || '';
 
       // Upload new file if provided
       if (file) {
