@@ -91,7 +91,7 @@ const StudentAssignmemtSubmit = () => {
       const user = await account.get();
       if (!user) return;
 
-    let fileUrl = (submission as Submission | null)?.fileUrl || '';
+      let fileUrl = (submission as Submission | null)?.fileUrl || '';
 
       // Upload new file if provided
       if (file) {
@@ -139,20 +139,22 @@ const StudentAssignmemtSubmit = () => {
 
   return (
     <div className="space-y-6 pb-16 px-4 sm:px-0 animate-in fade-in duration-300">
-      <div className="flex items-center gap-1">
+      
+      {/* Normal Back Button & Header Section */}
+      <div className="space-y-4">
         <button
           onClick={() => navigate(-1)}
-          className="p-2.5 rounded-2xl bg-indigo-50/80 backdrop-blur-xl border border-indigo-100 text-indigo-600 hover:bg-indigo-100 transition-all cursor-pointer shadow-2xs shrink-0"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-50/80 backdrop-blur-xl border border-indigo-100 text-indigo-600 hover:bg-indigo-100 transition-all cursor-pointer shadow-2xs text-xs font-semibold"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={15} />
+          <span>Back</span>
         </button>
-        <div className="overflow-hidden">
-          <Header
-            title="Submit Assignment"
-            description="Upload files, add notes, and send your work for grading."
-            icon={<FileText size={20} />}
-          />
-        </div>
+
+        <Header
+          title="Submit Assignment"
+          description="Upload files, add notes, and send your work for grading."
+          icon={<FileText size={20} />}
+        />
       </div>
 
       {loading ? (
@@ -175,7 +177,7 @@ const StudentAssignmemtSubmit = () => {
               </div>
 
               {isPastDue && (
-                <div className="flex items-start sm:items-center gap-1.5 text-xs  text-rose-700 bg-rose-50 p-3 rounded-2xl border border-rose-200/60">
+                <div className="flex items-start sm:items-center gap-1.5 text-xs text-rose-700 bg-rose-50 p-3 rounded-2xl border border-rose-200/60">
                   <AlertCircle size={15} className="shrink-0 text-rose-600 mt-0.5 sm:mt-0" />
                   <span>Deadline has passed.</span>
                 </div>

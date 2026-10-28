@@ -25,6 +25,12 @@ export const appwriteConfig = {
   quizAttemptsId: import.meta.env.VITE_APPWRITE_QUIZ_ATTEMPT_ID,
   courseDiscussionsId: import.meta.env.VITE_APPWRITE_COURSE_DISCUSSIONS_ID,
   timetableId : import.meta.env.VITE_APPWRITE_TIMETABLE_ID,
+  questionsId:import.meta.env.VITE_APPWRITE_QUESTIONS_ID,
+  cbtTestId:import.meta.env.VITE_APPWRITE_CBT_TEST_ID,
+  cbtResultId:import.meta.env.VITE_APPWRITE_CBT_RESULT_ID,
+
+
+  
 
 
 

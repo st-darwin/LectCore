@@ -48,6 +48,8 @@ import CourseDiscussions from "./Sections/Student/CourseDiscussion";
 import LecturerCourseDiscussions from "./Sections/Lecturer/LecturerCourseDiscussions";
 import StudentTimetable from "./Sections/Student/StudentTimetable";
 import LecturerTimetable from "./Sections/Lecturer/LecturerTimetable";
+import LecturerCBTManager from "./Sections/Lecturer/LecturerCBTManager";
+import StudentCBT from "./Sections/Student/StudentCBT";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -95,6 +97,8 @@ const router = createBrowserRouter(
         <Route path="analysis" element={<ViewAnalytics/>}/>
         <Route path="flashcards" element={<Flashcards/>} />
         <Route path="timetable" element={<LecturerTimetable />} />
+        <Route path="cbt" element={<LecturerCBTManager />} />
+        
 
       </Route>
 
@@ -116,6 +120,7 @@ const router = createBrowserRouter(
          <Route path="pomodoro-timer" element={<PomodoroTimer/>} />
          <Route path="timetable" element={<StudentTimetable />} />
          <Route path="notes/:courseId" element={<StudyNotes />} />
+         <Route path="cbt" element={<StudentCBT />} />
          <Route path="courses/:courseId/discussions" element={<CourseDiscussions />} />
       </Route>
     </>
