@@ -1,4 +1,4 @@
-import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon, GraduationCap, ChartAreaIcon, BellOff, Layers, TimerIcon, Calendar1Icon } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, FileText, ShieldAlert, Settings, Megaphone, Activity, MessagesSquare, Settings2Icon, GraduationCap, ChartAreaIcon, BellOff, Layers, TimerIcon, Calendar1Icon, FileQuestion } from 'lucide-react';
 
 // nav items for the lecturer
 export const LecturerNavItems = [
@@ -16,6 +16,11 @@ export const LecturerNavItems = [
     label: 'My Students',
     path: '/lecturer/students',
     icon: Users,
+  },
+  {
+    label: 'CBT Manager',
+    path: '/lecturer/cbt',
+    icon: FileQuestion,
   },
   {
     label: 'Flashcards',
@@ -66,6 +71,11 @@ export const StudentNavItems = [
     icon: BookOpen,
   },
   {
+    label: 'CBT Portal',
+    path: '/student/cbt',
+    icon: FileQuestion,
+  },
+  {
     label: 'Flashcards',
     path: '/student/flashcards',
     icon: Layers,
@@ -75,7 +85,7 @@ export const StudentNavItems = [
     path: "/student/timetable",
     icon: Calendar1Icon
   },
-    {
+  {
     label: "Pomodoro Timer",
     path: "/student/pomodoro-timer",
     icon: TimerIcon
@@ -114,9 +124,7 @@ export const StudentNavItems = [
     label: "Settings",
     path: "/student/settings",
     icon: Settings2Icon
-  },
-
-
+  }
 ];
 
 export const AdminNavItems = [
