@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../appwrite/Auth';
 import { User, Phone, Hash, Mail, Lock, ArrowRight, ShieldCheck, Zap, Building2, ChevronDown } from 'lucide-react';
-import logo from "../../assets/icons/logo.png"
+import logo from "../../assets/icons/logo.png";
+
+type UserRole = 'student' | 'lecturer' | 'community_student' | 'community_tutor';
+
 export default function Signup() {
-  const [role, setRole] = useState<'student' | 'lecturer'>('student');
+  const [role, setRole] = useState<UserRole>('student');
   const [formData, setFormData] = useState({
     university: 'Mountain Top University (MTU)',
     name: '',
@@ -17,6 +20,8 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const isCommunity = role === 'community_student' || role === 'community_tutor';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -38,8 +43,8 @@ export default function Signup() {
         email: formData.email,
         pass: formData.password,
         phone: formData.phone,
-        campusId: formData.campusId,
-        university: formData.university,
+        campusId: isCommunity ? `COMM-${Date.now().toString().slice(-6)}` : formData.campusId,
+        university: isCommunity ? 'Global Community' : formData.university,
         role: role,
       });
       navigate('/admin');
@@ -58,22 +63,24 @@ export default function Signup() {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-500/30">
-              <img src={logo}  className='rounded-xl' alt="" />
+              <img src={logo} className='rounded-xl' alt="" />
             </div>
             <span className="text-xl font-semibold tracking-tight text-white">LectCore</span>
           </div>
           <h1 className="text-4xl font-semibold tracking-tight leading-tight mb-4 text-white">
-            Join your university ecosystem today.
+            {isCommunity ? 'Join the global community learning ecosystem.' : 'Join your university ecosystem today.'}
           </h1>
           <p className="text-slate-400 text-sm leading-relaxed">
-            Create your verified student or faculty profile to get started with automated attendance and course materials.
+            {isCommunity 
+              ? 'Connect with independent tutors, take open courses, and study at your own pace from anywhere.'
+              : 'Create your verified student or faculty profile to get started with automated attendance and course materials.'}
           </p>
         </div>
 
         <div className="relative z-10 space-y-4 pt-8 border-t border-slate-800/80">
           <div className="flex items-center gap-3 text-slate-300 text-xs">
             <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400"><ShieldCheck size={16} /></div>
-            <span>Secure campus ID validation protocol</span>
+            <span>Secure account validation protocol</span>
           </div>
           <div className="flex items-center gap-3 text-slate-300 text-xs">
             <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400"><Zap size={16} /></div>
@@ -86,55 +93,72 @@ export default function Signup() {
       <div className="lg:col-span-7 flex items-center justify-center p-6 sm:p-12 bg-slate-50 text-slate-900">
         <div className="w-full max-w-md p-8 rounded-3xl bg-white border border-slate-200/80 shadow-2xl shadow-slate-200/50">
           <div className="lg:hidden flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-lg  text-white flex items-center justify-center font-bold text-sm">
+            <div className="w-10 h-10 rounded-lg text-white flex items-center justify-center font-bold text-sm">
               <img src={logo} className='rounded-xl' alt="" />
             </div>
             <span className="font-semibold text-slate-900">LectCore</span>
           </div>
 
           <h2 className="text-2xl font-semibold tracking-tight mb-1 text-slate-900">Create Account</h2>
-          <p className="text-slate-500 text-sm mb-6">Select your role to register your campus profile.</p>
+          <p className="text-slate-500 text-sm mb-6">Select your role to register your profile.</p>
 
-          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-2xl mb-6 border border-slate-200/60">
+          {/* Expanded Role Selector for Campus & Community */}
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl mb-6 border border-slate-200/60">
             <button
               type="button"
               onClick={() => { setRole('student'); setFormData({ ...formData, campusId: '' }); }}
-              className={`py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${role === 'student' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`py-2 text-[11px] font-semibold rounded-xl transition-all cursor-pointer ${role === 'student' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
             >
-              Student
+              Campus Student
             </button>
             <button
               type="button"
               onClick={() => { setRole('lecturer'); setFormData({ ...formData, campusId: '' }); }}
-              className={`py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${role === 'lecturer' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`py-2 text-[11px] font-semibold rounded-xl transition-all cursor-pointer ${role === 'lecturer' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Lecturer
+            </button>
+            <button
+              type="button"
+              onClick={() => { setRole('community_student'); setFormData({ ...formData, campusId: '' }); }}
+              className={`py-2 text-[11px] font-semibold rounded-xl transition-all cursor-pointer ${role === 'community_student' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Community Learner
+            </button>
+            <button
+              type="button"
+              onClick={() => { setRole('community_tutor'); setFormData({ ...formData, campusId: '' }); }}
+              className={`py-2 text-[11px] font-semibold rounded-xl transition-all cursor-pointer ${role === 'community_tutor' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Community Tutor
             </button>
           </div>
 
           {error && <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs">{error}</div>}
 
           <form onSubmit={handleSignup} className="space-y-3.5">
-            {/* Soft University Combobox */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Institution</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                  <Building2 size={16} />
-                </span>
-                <select
-                  name="university"
-                  value={formData.university}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none cursor-pointer"
-                >
-                  <option value="Mountain Top University (MTU)">Mountain Top University (MTU)</option>
-                </select>
-                <span className="absolute inset-y-0 right-0 flex items-center pr-3.5 pointer-events-none text-slate-400">
-                  <ChevronDown size={16} />
-                </span>
+            {/* Institution field hidden or set automatically for community members */}
+            {!isCommunity && (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Institution</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                    <Building2 size={16} />
+                  </span>
+                  <select
+                    name="university"
+                    value={formData.university}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="Mountain Top University (MTU)">Mountain Top University (MTU)</option>
+                  </select>
+                  <span className="absolute inset-y-0 right-0 flex items-center pr-3.5 pointer-events-none text-slate-400">
+                    <ChevronDown size={16} />
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Full Name</label>
@@ -143,25 +167,28 @@ export default function Signup() {
                 <input type="text" name="name" required value={formData.name} onChange={handleChange} className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all" placeholder="Uzoma Solomon" />
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
-                  {role === 'student' ? 'Matric ID' : 'Lecturer ID'}
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400"><Hash size={16} /></span>
-                  <input
-                    type="text"
-                    name="campusId"
-                    required
-                    value={formData.campusId}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                    placeholder={role === 'student' ? 'MAT/22/...' : 'LEC/00/...'}
-                  />
+              {!isCommunity && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    {role === 'student' ? 'Matric ID' : 'Lecturer ID'}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400"><Hash size={16} /></span>
+                    <input
+                      type="text"
+                      name="campusId"
+                      required
+                      value={formData.campusId}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                      placeholder={role === 'student' ? 'MAT/22/...' : 'LEC/00/...'}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div>
+              )}
+              <div className={isCommunity ? 'col-span-2' : ''}>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Phone Number</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400"><Phone size={16} /></span>
@@ -169,13 +196,15 @@ export default function Signup() {
                 </div>
               </div>
             </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Email Address</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400"><Mail size={16} /></span>
-                <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all" placeholder="user@mtu.edu.ng" />
+                <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all" placeholder={isCommunity ? "learner@gmail.com" : "user@mtu.edu.ng"} />
               </div>
             </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Password</label>
               <div className="relative">
@@ -183,6 +212,7 @@ export default function Signup() {
                 <input type="password" name="password" required value={formData.password} onChange={handleChange} className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all" placeholder="••••••••" />
               </div>
             </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Confirm Password</label>
               <div className="relative">

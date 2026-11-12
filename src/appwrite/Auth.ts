@@ -27,7 +27,7 @@ export const auth = {
     }
   },
 
-  async register(data: { name: string; email: string; pass: string; phone: string; campusId:  string; role: 'student' | 'lecturer'; university: string }) {
+ async register(data: { name: string; email: string; pass: string; phone: string; campusId: string; role: 'student' | 'lecturer' | 'community_student' | 'community_tutor'; university: string }) {
     const userId = ID.unique();
     
     try {
@@ -50,8 +50,7 @@ export const auth = {
         campusId: data.campusId,
         email: data.email,
         phone: data.phone,
-        university: data.university, 
-
+        university: data.university,
       }
     );
   },
