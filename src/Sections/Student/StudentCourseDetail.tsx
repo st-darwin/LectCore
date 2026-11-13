@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive, Bookmark, MessageSquare, Eye, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, User, Building2, CheckCircle2, Plus, Loader2, GraduationCap, Layers, FileText, Download, Search, FileCode, FileSpreadsheet, Archive, Bookmark, MessageSquare, Printer } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
 
@@ -37,9 +37,7 @@ const StudentCourseDetail = () => {
   const [materialSearch, setMaterialSearch] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
-
-  // Preview Modal State
-  const [previewFile, setPreviewFile] = useState<CourseMaterial | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (courseId) {
@@ -153,6 +151,49 @@ const StudentCourseDetail = () => {
     }
   };
 
+  const handlePrintPreview = async (mat: CourseMaterial) => {
+    if (!mat.fileUrl) return;
+    try {
+      setPrintingId(mat.$id);
+
+      // Convert download URL to view URL if using Appwrite Storage
+      const viewUrl = mat.fileUrl.replace('/download', '/view');
+      const response = await fetch(viewUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      // Create a hidden iframe to trigger the native browser print/preview window
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.src = blobUrl;
+
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setPrintingId(null);
+
+          // Clean up after print dialog closes
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+            URL.revokeObjectURL(blobUrl);
+          }, 60000);
+        }, 300);
+      };
+    } catch (err) {
+      console.error("Failed to open print preview:", err);
+      setPrintingId(null);
+      window.open(mat.fileUrl.replace('/download', '/view'), '_blank');
+    }
+  };
+
   const filteredMaterials = useMemo(() => {
     return materials.filter(
       (mat) =>
@@ -170,24 +211,6 @@ const StudentCourseDetail = () => {
     if (lower.includes('.zip') || lower.includes('.rar') || lower.includes('.tar')) return <Archive size={15} className="text-amber-500" />;
     if (lower.includes('.js') || lower.includes('.ts') || lower.includes('.html')) return <FileCode size={15} className="text-indigo-500" />;
     return <FileText size={15} className="text-indigo-600" />;
-  };
-
-  // Helper to determine iframe preview source based on file format
-  const getPreviewSource = (url: string) => {
-    const lower = url.toLowerCase();
-    // Office documents (Word, Excel, PowerPoint) need an external cloud viewer like Office Online
-    if (
-      lower.includes('.doc') ||
-      lower.includes('.docx') ||
-      lower.includes('.xls') ||
-      lower.includes('.xlsx') ||
-      lower.includes('.ppt') ||
-      lower.includes('.pptx')
-    ) {
-      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
-    }
-    // PDFs, images, and text render directly in browser iframe
-    return url;
   };
 
   if (loading) {
@@ -408,10 +431,15 @@ const StudentCourseDetail = () => {
                   {mat.fileUrl ? (
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setPreviewFile(mat)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                        onClick={() => handlePrintPreview(mat)}
+                        disabled={printingId === mat.$id}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
                       >
-                        <Eye size={12} className="text-slate-500" />
+                        {printingId === mat.$id ? (
+                          <Loader2 size={12} className="animate-spin text-indigo-600" />
+                        ) : (
+                          <Printer size={12} className="text-slate-500" />
+                        )}
                         <span>Preview</span>
                       </button>
 
@@ -446,62 +474,6 @@ const StudentCourseDetail = () => {
           </div>
         )}
       </div>
-
-      {/* Universal Document Preview Modal (Supports PDF, Word, PowerPoint, Excel, Images) */}
-      {previewFile && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-slate-200 w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 border border-indigo-100">
-                  {getFileIcon(previewFile.fileUrl)}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 truncate">{previewFile.title}</h3>
-                  <p className="text-[10px] text-slate-400 truncate">{course.courseCode} Resource Preview</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={previewFile.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs active:scale-95"
-                >
-                  <Download size={13} />
-                  <span>Download File</span>
-                </a>
-                <button
-                  onClick={() => setPreviewFile(null)}
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-all cursor-pointer active:scale-95"
-                  aria-label="Close Preview"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Body (Universal Document Viewer) */}
-            <div className="flex-1 bg-slate-100/60 relative flex items-center justify-center overflow-hidden">
-              {previewFile.fileUrl ? (
-                <iframe
-                  src={getPreviewSource(previewFile.fileUrl)}
-                  title={previewFile.title}
-                  className="w-full h-full border-0"
-                />
-              ) : (
-                <div className="text-center space-y-2 p-6">
-                  <FileText size={32} className="mx-auto text-slate-400" />
-                  <p className="text-xs font-bold text-slate-700">Preview Unavailable</p>
-                  <p className="text-[11px] text-slate-400">This file cannot be rendered directly in the browser.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

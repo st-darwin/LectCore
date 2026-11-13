@@ -105,7 +105,7 @@ export default function LecturerNav() {
 
       {/* Mobile & Tablet Full-Screen/Drawer Sliding Glass Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-xs flex flex-col pt-20 sm:pt-24 px-3 sm:px-6 pb-6 animate-in fade-in duration-200 items-center">
+        <div className="lg:hidden fixed inset-0  z-40 bg-slate-900/20 backdrop-blur-xs flex flex-col pt-20 sm:pt-24 px-3 sm:px-6 pb-6 animate-in fade-in duration-200 items-center">
           <div className="w-full max-w-xl bg-white/95 backdrop-blur-2xl border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-[0_12px_40px_rgba(0,0,0,0.08)] flex flex-col max-h-[calc(100vh-7rem)] overflow-y-auto">
             <nav className="space-y-1.5 flex-1">
               {LecturerNavItems.map((item) => {

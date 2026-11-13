@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Header from '../../Components/Header';
+import AdminHeader from '../../Components/AdminHeader';
 import { useLoaderData } from 'react-router-dom';
 import { Plus, Trash2, Loader2, MessageSquarePlus, Megaphone, X, AlertCircle, Info, Calendar, BookOpen, ChevronDown } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
@@ -204,7 +204,7 @@ const Announcements = () => {
 
   return (
     <div className="space-y-8 pb-16 animate-in fade-in duration-300">
-      <Header
+      <AdminHeader
         title="Class Announcements"
         description="Broadcast real-time updates, deadline modifications, and notifications to your students."
         ctaText="New Announcement"

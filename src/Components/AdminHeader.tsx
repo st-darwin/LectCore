@@ -35,7 +35,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   const isExternal = ctaUrl?.startsWith('http') || ctaUrl?.startsWith('mailto:');
 
   return (
-    <header className="relative md:mt-4 mt-5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 mb-8 border-b border-slate-200/60">
+    <header className="relative md:mt-4  flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 mb-8 border-b border-slate-200/60">
       {/* Background ambient light glow */}
       <div className="absolute -top-10 left-1/4 w-72 h-72 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -76,7 +76,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
           {isExternal ? (
             <button
               onClick={handleCtaClick}
-              className="group relative w-full lg:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 shadow-md shadow-indigo-600/20 hover:shadow-sm hover:shadow-indigo-600/30 transition-all duration-300 active:scale-[0.97] cursor-pointer"
+              className="group relative w-full lg:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5  shadow-indigo-600/20   transition-all duration-300 active:scale-[0.97] cursor-pointer"
             >
               {ctaIcon && (
                 <span className="text-indigo-200 group-hover:text-white transition-colors flex items-center">
@@ -90,7 +90,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
           ) : (
             <Link 
               to={ctaUrl} 
-              className="group relative w-full lg:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 shadow-md shadow-indigo-600/20 hover:shadow-lg hover:shadow-indigo-600/30 transition-all duration-300 active:scale-[0.97] text-center"
+              className="group relative w-full lg:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5  shadow-indigo-600/20   transition-all duration-300 active:scale-[0.97] cursor-pointer"
             >
               {ctaIcon && (
                 <span className="text-indigo-200 group-hover:text-white transition-colors flex items-center">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ClipboardList, Search, Loader2, BookOpen, Calendar, Award, FileText, MoreVertical, Trash2, X } from 'lucide-react';
-import Header from '../../Components/Header';
+import AdminHeader from '../../Components/AdminHeader';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
 import { useNavigate } from 'react-router-dom';
@@ -153,7 +153,7 @@ const AssignmentView = () => {
 
   return (
     <div className="space-y-6 pb-16 animate-in fade-in duration-300">
-      <Header
+      <AdminHeader
         title="Assignments"
         description="Create, manage, and track assignments posted across your courses."
         ctaText="Create Assignment"

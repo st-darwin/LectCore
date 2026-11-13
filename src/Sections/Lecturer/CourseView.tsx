@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, Plus, ArrowRight, Loader2, Search, MoreVertical, Edit, Trash2, Globe, Building } from 'lucide-react';
-import AdminHeader from '../../Components/Header';
+import AdminHeader from '../../Components/AdminHeader';
 import { databases, appwriteConfig, account } from '../../appwrite/Client';
 import { Query } from 'appwrite';
 
