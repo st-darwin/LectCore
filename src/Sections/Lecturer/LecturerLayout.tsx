@@ -19,6 +19,14 @@ export const Loader = async () => {
       return redirect('/student');
     }
 
+    if (user.profile?.role === 'community_student') {
+      return redirect('/community_student');
+    }
+
+    if (user.profile?.role === 'community_tutor') {
+      return redirect('/community_tutor');
+    }
+
     return user;
   } catch (error) {
     console.log("error fetching user", error);

@@ -357,6 +357,7 @@ export default function StudentSettings() {
                     <input 
                       type="text"
                       value={name}
+                      disabled
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Enter your full name"
                       required

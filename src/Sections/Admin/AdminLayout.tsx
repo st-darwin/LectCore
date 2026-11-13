@@ -14,6 +14,9 @@ export const Loader = async () => {
   if (user.profile?.role !== 'admin') {
     if (user.profile?.role === 'lecturer') return redirect('/lecturer');
     if (user.profile?.role === 'student') return redirect('/student');
+    if (user.profile?.role ==='community_student') return redirect('/community_student');
+    if (user.profile?.role ==='community_tutor') return redirect('/community_tutor');
+
     return redirect('/login');
   }
 
