@@ -10,11 +10,14 @@ export const Loader = async () => {
   return user;
 };
 
+type AccessScope = 'institutional' | 'community';
+
 interface Course {
   $id: string;
   courseTitle?: string;
   title?: string;
   courseCode: string;
+  accessScope?: AccessScope;
 }
 
 interface Announcement {
@@ -23,6 +26,7 @@ interface Announcement {
   content: string;
   priority: string;
   courseId: string;
+  accessScope: AccessScope;
   $createdAt: string;
 }
 
@@ -32,13 +36,14 @@ const Announcements = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  
-  // Form states
   const [title, setTitle] = useState<string>('');
   const [content, setContent] = useState<string>('');
   const [priority, setPriority] = useState<string>('normal');
   const [courseId, setCourseId] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+
+  const selectedCourse = courses.find(course => course.$id === courseId);
+  const selectedAccessScope = selectedCourse?.accessScope;
 
   useEffect(() => {
     fetchData();
@@ -48,52 +53,30 @@ const Announcements = () => {
     try {
       setLoading(true);
       const [coursesRes, altCoursesRes, announcementsRes] = await Promise.all([
-        databases.listDocuments(
-          appwriteConfig.databaseId,
-          appwriteConfig.courseId || 'courses',
-          [Query.orderDesc('$createdAt')]
-        ).catch(() => ({ documents: [] })),
-        databases.listDocuments(
-          appwriteConfig.databaseId,
-          appwriteConfig.courseId || 'course',
-          [Query.orderDesc('$createdAt')]
-        ).catch(() => ({ documents: [] })),
-        databases.listDocuments(
-          appwriteConfig.databaseId,
-          appwriteConfig.announcementsId,
-          [Query.equal('lecturerId', user.$id), Query.orderDesc('$createdAt')]
-        )
+        databases.listDocuments(appwriteConfig.databaseId, appwriteConfig.courseId || 'courses', [Query.orderDesc('$createdAt')]).catch(() => ({ documents: [] })),
+        databases.listDocuments(appwriteConfig.databaseId, appwriteConfig.courseId || 'course', [Query.orderDesc('$createdAt')]).catch(() => ({ documents: [] })),
+        databases.listDocuments(appwriteConfig.databaseId, appwriteConfig.announcementsId, [Query.equal('lecturerId', user.$id), Query.orderDesc('$createdAt')])
       ]);
 
-      const combinedCourses = [
-        ...(coursesRes.documents || []),
-        ...(altCoursesRes.documents || [])
-      ] as unknown as Course[];
-
-      const uniqueCourses = Array.from(
-        new Map(combinedCourses.map(c => [c.$id, c])).values()
-      );
+      const combinedCourses = [...(coursesRes.documents || []), ...(altCoursesRes.documents || [])] as unknown as Course[];
+      const uniqueCourses = Array.from(new Map(combinedCourses.map(c => [c.$id, c])).values());
 
       setCourses(uniqueCourses);
-      if (uniqueCourses.length > 0 && !courseId) {
-        setCourseId(uniqueCourses[0].$id);
-      }
-
+      if (uniqueCourses.length > 0 && !courseId) setCourseId(uniqueCourses[0].$id);
       setAnnouncements(announcementsRes.documents as unknown as Announcement[]);
     } catch (err) {
-      console.error("Failed to fetch data:", err);
+      console.error('Failed to fetch data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Client-side trigger helper to fan out notifications to enrolled students
   const sendCourseNotificationToStudents = async ({
     courseId,
     title,
     message,
     type = 'ANNOUNCEMENT',
-    relatedId,
+    relatedId
   }: {
     courseId: string;
     title: string;
@@ -102,7 +85,6 @@ const Announcements = () => {
     relatedId?: string;
   }) => {
     try {
-      // 1. Fetch students enrolled in this course
       const enrollments = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.enrollmentsId,
@@ -111,29 +93,21 @@ const Announcements = () => {
 
       if (enrollments.documents.length === 0) return;
 
-      // 2. Create notification records for each student in parallel
-      const notificationPromises = enrollments.documents.map((enrollment) => {
-        const studentId = enrollment.studentId; // Make sure this matches your schema attribute name
-        
-        return databases.createDocument(
-          appwriteConfig.databaseId,
-          appwriteConfig.notificationsId,
-          ID.unique(),
-          {
-            userId: studentId,
-            title,
-            message,
-            type,
-            relatedId,
-            isRead: false,
-          }
-        );
-      });
+      const notificationPromises = enrollments.documents.map(enrollment =>
+        databases.createDocument(appwriteConfig.databaseId, appwriteConfig.notificationsId, ID.unique(), {
+          userId: enrollment.studentId,
+          title,
+          message,
+          type,
+          relatedId,
+          isRead: false
+        })
+      );
 
       await Promise.all(notificationPromises);
       console.log(`Successfully dispatched notifications to ${enrollments.documents.length} students.`);
     } catch (error) {
-      console.error("Failed to trigger student notifications:", error);
+      console.error('Failed to trigger student notifications:', error);
     }
   };
 
@@ -141,10 +115,17 @@ const Announcements = () => {
     e.preventDefault();
     if (!title.trim() || !content.trim() || !courseId) return;
 
+    const selectedCourseForSubmit = courses.find(course => course.$id === courseId);
+    const accessScope = selectedCourseForSubmit?.accessScope;
+
+    if (accessScope !== 'institutional' && accessScope !== 'community') {
+      alert('The selected course does not have a valid access scope. Please update the course first.');
+      return;
+    }
+
     try {
       setSubmitting(true);
-      
-      // 1. Create the announcement document
+
       const response = await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.announcementsId,
@@ -152,19 +133,19 @@ const Announcements = () => {
         {
           lecturerId: user.$id,
           courseId,
+          accessScope,
           title: title.trim(),
           content: content.trim(),
-          priority,
+          priority
         }
       );
 
-      // 2. Fire notifications to all students enrolled in this course
       await sendCourseNotificationToStudents({
         courseId,
         title: `New Announcement: ${title.trim()}`,
         message: content.trim(),
         type: 'ANNOUNCEMENT',
-        relatedId: response.$id,
+        relatedId: response.$id
       });
 
       setTitle('');
@@ -172,43 +153,40 @@ const Announcements = () => {
       setPriority('normal');
       if (courses.length > 0) setCourseId(courses[0].$id);
       setIsModalOpen(false);
-      
-      // Refresh announcements list
+
       const announcementsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.announcementsId,
         [Query.equal('lecturerId', user.$id), Query.orderDesc('$createdAt')]
       );
+
       setAnnouncements(announcementsRes.documents as unknown as Announcement[]);
     } catch (err: any) {
-      console.error("Failed to create announcement:", err);
-      alert(err?.message || "Failed to post announcement.");
+      console.error('Failed to create announcement:', err);
+      alert(err?.message || 'Failed to post announcement.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this announcement?")) return;
+    if (!confirm('Delete this announcement?')) return;
     try {
       await databases.deleteDocument(appwriteConfig.databaseId, appwriteConfig.announcementsId, id);
-      setAnnouncements(announcements.filter((a) => a.$id !== id));
+      setAnnouncements(announcements.filter(a => a.$id !== id));
     } catch (err) {
-      console.error("Failed to delete announcement:", err);
+      console.error('Failed to delete announcement:', err);
     }
   };
 
-  const getCourseDetails = (cId: string) => {
-    return courses.find(c => c.$id === cId);
-  };
+  const getCourseDetails = (cId: string) => courses.find(c => c.$id === cId);
 
   return (
     <div className="space-y-8 pb-16 animate-in fade-in duration-300">
       <AdminHeader
         title="Class Announcements"
         description="Broadcast real-time updates, deadline modifications, and notifications to your students."
-        ctaText="New Announcement"
-        ctaUrl="#"
+      
         icon={<Megaphone size={20} />}
       />
 
@@ -220,18 +198,12 @@ const Announcements = () => {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-extrabold text-slate-900 tracking-wider uppercase">Active Broadcasts</h3>
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-extrabold border border-indigo-100">
-                {announcements.length}
-              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-extrabold border border-indigo-100">{announcements.length}</span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">Manage live communications visible on student dashboards.</p>
           </div>
         </div>
-
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer hover:scale-105 active:scale-95"
-        >
+        <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer hover:scale-105 active:scale-95">
           <Plus size={16} />
           <span>Post Announcement</span>
         </button>
@@ -243,63 +215,41 @@ const Announcements = () => {
         </div>
       ) : announcements.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {announcements.map((item) => {
+          {announcements.map(item => {
             const isUrgent = item.priority === 'urgent';
             const course = getCourseDetails(item.courseId);
+
             return (
-              <div
-                key={item.$id}
-                className={`group relative p-7 rounded-[2.5rem] backdrop-blur-xl border transition-all duration-300 flex flex-col justify-between shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-xl ${
-                  isUrgent 
-                    ? 'bg-gradient-to-br from-rose-50/70 via-white/90 to-white border-rose-200/80 hover:border-rose-300' 
-                    : 'bg-gradient-to-br from-white/95 to-white/70 border-slate-200/70 hover:border-indigo-200'
-                }`}
-              >
+              <div key={item.$id} className={`group relative p-7 rounded-[2.5rem] backdrop-blur-xl border transition-all duration-300 flex flex-col justify-between shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-xl ${isUrgent ? 'bg-gradient-to-br from-rose-50/70 via-white/90 to-white border-rose-200/80 hover:border-rose-300' : 'bg-gradient-to-br from-white/95 to-white/70 border-slate-200/70 hover:border-indigo-200'}`}>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border shadow-xs ${
-                        isUrgent 
-                          ? 'bg-rose-100/80 text-rose-700 border-rose-200' 
-                          : 'bg-indigo-50 text-indigo-600 border-indigo-100'
-                      }`}>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border shadow-xs ${isUrgent ? 'bg-rose-100/80 text-rose-700 border-rose-200' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
                         {isUrgent ? <AlertCircle size={12} /> : <Info size={12} />}
                         {item.priority}
                       </span>
-
                       {course && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                           <BookOpen size={11} className="text-slate-400" />
                           {course.courseCode}
                         </span>
                       )}
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${item.accessScope === 'community' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
+                        {item.accessScope === 'community' ? 'Community' : item.accessScope === 'institutional' ? 'My Institution' : 'Scope unavailable'}
+                      </span>
                     </div>
-
                     <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
                       <Calendar size={13} className="text-slate-300" />
                       {new Date(item.$createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                   </div>
-
-                  <h4 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
-                    {item.title}
-                  </h4>
-                  
-                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                    {item.content}
-                  </p>
+                  <h4 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">{item.title}</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed font-normal">{item.content}</p>
                 </div>
 
                 <div className="pt-5 mt-6 border-t border-slate-100/80 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Broadcast ID: {item.$id.slice(0, 6)}...
-                  </span>
-
-                  <button
-                    onClick={() => handleDelete(item.$id)}
-                    className="p-2.5 rounded-2xl bg-slate-100 hover:bg-rose-600 hover:text-white text-slate-500 transition-all cursor-pointer shadow-xs active:scale-95"
-                    title="Delete Announcement"
-                  >
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Broadcast ID: {item.$id.slice(0, 6)}...</span>
+                  <button onClick={() => handleDelete(item.$id)} className="p-2.5 rounded-2xl bg-slate-100 hover:bg-rose-600 hover:text-white text-slate-500 transition-all cursor-pointer shadow-xs active:scale-95" title="Delete Announcement">
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -313,13 +263,10 @@ const Announcements = () => {
             <MessageSquarePlus size={24} />
           </div>
           <h4 className="text-sm font-bold text-slate-900">No announcements posted yet</h4>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-            Keep your students informed and aligned by publishing your first classroom broadcast above.
-          </p>
+          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Keep your students informed and aligned by publishing your first classroom broadcast above.</p>
         </div>
       )}
 
-      {/* Soft Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white/95 backdrop-blur-2xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-100">
@@ -328,10 +275,7 @@ const Announcements = () => {
                 <h3 className="text-base font-extrabold text-slate-900">New Announcement</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Publish a notification instantly to student dashboards.</p>
               </div>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
-                className="p-2.5 rounded-2xl bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
-              >
+              <button onClick={() => setIsModalOpen(false)} className="p-2.5 rounded-2xl bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
                 <X size={16} />
               </button>
             </div>
@@ -340,16 +284,11 @@ const Announcements = () => {
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Target Course</label>
                 <div className="relative">
-                  <select
-                    value={courseId}
-                    onChange={(e) => setCourseId(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all font-medium appearance-none cursor-pointer"
-                  >
+                  <select value={courseId} onChange={e => setCourseId(e.target.value)} required className="w-full px-4 py-3 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all font-medium appearance-none cursor-pointer">
                     {courses.length === 0 ? (
                       <option value="">No courses available. Create a course first.</option>
                     ) : (
-                      courses.map((course) => (
+                      courses.map(course => (
                         <option key={course.$id} value={course.$id}>
                           {course.courseCode} — {course.courseTitle || course.title || 'Untitled Course'}
                         </option>
@@ -362,26 +301,25 @@ const Announcements = () => {
                 </div>
               </div>
 
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-700">Announcement access</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Automatically inherited from the selected course.</p>
+                </div>
+                <span className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-semibold border ${selectedAccessScope === 'community' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : selectedAccessScope === 'institutional' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                  {selectedAccessScope === 'community' ? 'Community' : selectedAccessScope === 'institutional' ? 'My Institution' : 'Not configured'}
+                </span>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Announcement Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Mid-semester test schedule update"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all font-medium"
-                />
+                <input type="text" required placeholder="e.g. Mid-semester test schedule update" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all font-medium" />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Priority Level</label>
                 <div className="relative">
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="w-full px-4 py-3 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all font-medium appearance-none cursor-pointer"
-                  >
+                  <select value={priority} onChange={e => setPriority(e.target.value)} className="w-full px-4 py-3 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all font-medium appearance-none cursor-pointer">
                     <option value="normal">Normal (Routine Update)</option>
                     <option value="urgent">Urgent (High Priority Alert)</option>
                   </select>
@@ -393,29 +331,14 @@ const Announcements = () => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Message Content</label>
-                <textarea
-                  required
-                  rows={4}
-                  placeholder="Write clear instructions or announcement details here..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all resize-none font-medium"
-                />
+                <textarea required rows={4} placeholder="Write clear instructions or announcement details here..." value={content} onChange={e => setContent(e.target.value)} className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all resize-none font-medium" />
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-all cursor-pointer"
-                >
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-all cursor-pointer">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting || courses.length === 0}
-                  className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 disabled:opacity-50 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-2"
-                >
+                <button type="submit" disabled={submitting || courses.length === 0 || (selectedAccessScope !== 'institutional' && selectedAccessScope !== 'community')} className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 disabled:opacity-50 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-2">
                   {submitting && <Loader2 size={14} className="animate-spin" />}
                   <span>{submitting ? 'Publishing...' : 'Publish Broadcast'}</span>
                 </button>

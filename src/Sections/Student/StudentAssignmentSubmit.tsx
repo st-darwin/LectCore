@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FileText, Loader2, ArrowLeft, Upload, Send, ExternalLink, CheckCircle2, AlertCircle, Lock, Check } from 'lucide-react';
-import Header from '../../Components/Header';
+import AdminHeader from '../../Components/AdminHeader';
 import { account, databases, storage, appwriteConfig } from '../../appwrite/Client';
 import { Query, ID } from 'appwrite';
 
@@ -31,6 +31,7 @@ const StudentAssignmemtSubmit = () => {
   const navigate = useNavigate();
 
   const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [courseCode, setCourseCode] = useState<string>('');
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -58,7 +59,24 @@ const StudentAssignmemtSubmit = () => {
         appwriteConfig.assignmentId || 'assignments',
         assignmentId!
       );
-      setAssignment(assignmentRes as unknown as Assignment);
+      const fetchedAssignment = assignmentRes as unknown as Assignment;
+      setAssignment(fetchedAssignment);
+
+      // Fetch corresponding Course details using appwriteConfig.courseId collection
+      if (fetchedAssignment.courseId) {
+        try {
+          const courseRes = await databases.getDocument(
+            appwriteConfig.databaseId,
+            appwriteConfig.courseId,
+            fetchedAssignment.courseId
+          );
+          const courseData = courseRes as any;
+          setCourseCode(courseData.courseCode || courseData.code || courseData.title || fetchedAssignment.courseId);
+        } catch (courseErr) {
+          console.error("Failed to fetch course details:", courseErr);
+          setCourseCode(fetchedAssignment.courseId);
+        }
+      }
 
       // 2. Check for existing submission by this student
       const submissionsRes = await databases.listDocuments(
@@ -150,7 +168,7 @@ const StudentAssignmemtSubmit = () => {
           <span>Back</span>
         </button>
 
-        <Header
+        <AdminHeader
           title="Submit Assignment"
           description="Upload files, add notes, and send your work for grading."
           icon={<FileText size={20} />}
@@ -167,7 +185,7 @@ const StudentAssignmemtSubmit = () => {
           <div className="lg:col-span-1 space-y-4">
             <div className="bg-gradient-to-br from-indigo-50/90 via-white to-indigo-50/40 backdrop-blur-xl p-5 sm:p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-3">
               <span className="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 text-[10px] font-bold border border-indigo-200/60 inline-block">
-                Course: {assignment.courseId}
+                Course: {courseCode || assignment.courseId}
               </span>
               <h3 className="text-sm font-bold text-slate-900 leading-snug">{assignment.title}</h3>
               <p className="text-xs text-slate-600 leading-relaxed">{assignment.description}</p>
@@ -288,7 +306,7 @@ const StudentAssignmemtSubmit = () => {
         </div>
       )}
 
-      {/* Minimal Sleek Submission Confirmation Modal */}
+      {/* Confirmation Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-xs sm:max-w-sm rounded-[2rem] p-5 sm:p-6 border border-indigo-100 shadow-2xl space-y-4 sm:space-y-5 text-center animate-in zoom-in-95 duration-200">

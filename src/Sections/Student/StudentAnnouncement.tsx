@@ -1,20 +1,30 @@
+
 import { useState, useEffect } from 'react';
-import { 
-  Megaphone, 
-  Calendar, 
-  BookOpen, 
-  Loader2, 
+import AdminHeader from '../../Components/AdminHeader';
+import {
+  Megaphone,
+  Calendar,
+  BookOpen,
+  Loader2,
   Layers,
   Clock,
   Pin,
   CheckCheck,
-  Info,
   Search,
   BellRing,
-  ShieldAlert
+  ShieldAlert,
+  Globe2,
+  Building2,
+  Info,
+  X,
+  AlertCircle
 } from 'lucide-react';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
+
+type AccessScope = 'institutional' | 'community';
+
+type Priority = 'urgent' | 'high' | 'normal' | 'pinned';
 
 interface Announcement {
   $id: string;
@@ -24,8 +34,21 @@ interface Announcement {
   courseId: string;
   courseCode?: string;
   courseTitle?: string;
+  accessScope: AccessScope;
   $createdAt: string;
-  priority?: 'high' | 'normal' | 'pinned';
+  priority?: Priority;
+}
+
+interface Course {
+  $id: string;
+  courseCode?: string;
+  courseTitle?: string;
+  accessScope?: string;
+}
+
+interface CourseFilter {
+  id: string;
+  code: string;
 }
 
 const StudentAnnouncement = () => {
@@ -33,6 +56,7 @@ const StudentAnnouncement = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     fetchAnnouncements();
@@ -41,37 +65,52 @@ const StudentAnnouncement = () => {
   const fetchAnnouncements = async () => {
     try {
       setLoading(true);
+      setError('');
+
       const user = await account.get();
       if (!user) return;
 
-      // 1. Fetch student course enrollments
+      // 1. Get the student's enrolled courses
       const enrollmentsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.enrollmentsId,
-        [Query.equal('studentId', user.$id)]
+        [
+          Query.equal('studentId', user.$id),
+          Query.limit(500)
+        ]
       );
 
-      const courseIds = enrollmentsRes.documents.map((doc: any) => doc.courseId);
+      const courseIds = Array.from(
+        new Set(
+          enrollmentsRes.documents
+            .map((doc: any) => doc.courseId)
+            .filter((id: string) => Boolean(id))
+        )
+      );
 
-      // 2. Fetch course-specific announcements + global system announcements in parallel
-      const announcementQueries = courseIds.length > 0 
-        ? [Query.or([
-            Query.equal('courseId', courseIds),
-            Query.equal('courseId', 'all'),
-            Query.equal('lecturerId', 'admin-system')
-          ]), Query.orderDesc('$createdAt')]
-        : [Query.or([
-            Query.equal('courseId', 'all'),
-            Query.equal('lecturerId', 'admin-system')
-          ]), Query.orderDesc('$createdAt')];
+      // 2. Fetch only enrolled-course announcements and admin broadcasts
+      const announcementConditions = [
+        Query.equal('courseId', 'all'),
+        Query.equal('lecturerId', 'admin-system')
+      ];
+
+      if (courseIds.length > 0) {
+        announcementConditions.push(
+          Query.equal('courseId', courseIds)
+        );
+      }
 
       const announcementsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.announcementsId || 'announcements',
-        announcementQueries
+        [
+          Query.or(announcementConditions),
+          Query.orderDesc('$createdAt'),
+          Query.limit(100)
+        ]
       );
 
-      // Extract unique course IDs needed for lookup (excluding 'all' / system IDs)
+      // 3. Resolve course information
       const targetCourseIds = Array.from(
         new Set(
           announcementsRes.documents
@@ -80,141 +119,276 @@ const StudentAnnouncement = () => {
         )
       );
 
-      let courseMap = new Map();
+      const courseMap = new Map<string, Course>();
+
       if (targetCourseIds.length > 0) {
         const coursesRes = await databases.listDocuments(
           appwriteConfig.databaseId,
           appwriteConfig.courseId,
-          [Query.equal('$id', targetCourseIds)]
+          [
+            Query.equal('$id', targetCourseIds),
+            Query.limit(500)
+          ]
         );
 
-        coursesRes.documents.forEach((c: any) => {
-          courseMap.set(c.$id, { code: c.courseCode, title: c.courseTitle });
+        coursesRes.documents.forEach((course: any) => {
+          courseMap.set(course.$id, {
+            $id: course.$id,
+            courseCode: course.courseCode,
+            courseTitle: course.courseTitle,
+            accessScope: course.accessScope
+          });
         });
       }
 
-      // Format announcements with resolved metadata
-      const formattedAnnouncements = announcementsRes.documents.map((doc: any) => {
-        const isAdminBroadcast = doc.lecturerId === 'admin-system' || doc.courseId === 'all';
-        const courseInfo = courseMap.get(doc.courseId) || {};
+      // 4. Format announcements
+      const formattedAnnouncements = announcementsRes.documents.map(
+        (doc: any) => {
+          const isAdminBroadcast =
+            doc.lecturerId === 'admin-system' ||
+            doc.courseId === 'all';
 
-        return {
-          ...doc,
-          courseCode: isAdminBroadcast ? 'SYS' : (courseInfo.code || 'GEN'),
-          courseTitle: isAdminBroadcast ? 'System-Wide Broadcast' : (courseInfo.title || 'General Course'),
-          priority: doc.priority || 'normal'
-        };
-      });
+          const courseInfo = courseMap.get(doc.courseId);
+
+          const accessScope: AccessScope =
+            doc.accessScope?.toLowerCase() === 'community' ||
+            courseInfo?.accessScope?.toLowerCase() === 'community'
+              ? 'community'
+              : 'institutional';
+
+          const normalizedPriority = String(
+            doc.priority || 'normal'
+          ).toLowerCase() as Priority;
+
+          return {
+            ...doc,
+            courseCode: isAdminBroadcast
+              ? 'SYS'
+              : courseInfo?.courseCode || 'GEN',
+            courseTitle: isAdminBroadcast
+              ? 'System-Wide Broadcast'
+              : courseInfo?.courseTitle || 'General Course',
+            accessScope,
+            priority: normalizedPriority
+          };
+        }
+      );
 
       setAnnouncements(formattedAnnouncements as Announcement[]);
     } catch (err) {
-      console.error("Failed to load announcements:", err);
+      console.error('Failed to load announcements:', err);
+      setError('Unable to load announcements. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // 5. Filter announcements
   const filteredAnnouncements = announcements.filter((item) => {
-    const matchesFilter = 
-      selectedFilter === 'all' || 
-      item.courseId === selectedFilter || 
-      (selectedFilter === 'system' && (item.lecturerId === 'admin-system' || item.courseId === 'all'));
+    const isAdminNotice =
+      item.lecturerId === 'admin-system' ||
+      item.courseId === 'all';
 
-    const matchesSearch = 
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.courseCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.courseTitle?.toLowerCase().includes(searchQuery.toLowerCase());
+    let matchesFilter = true;
+
+    if (selectedFilter === 'system') {
+      matchesFilter = isAdminNotice;
+    } else if (selectedFilter === 'institution') {
+      matchesFilter =
+        !isAdminNotice && item.accessScope === 'institutional';
+    } else if (selectedFilter === 'community') {
+      matchesFilter =
+        !isAdminNotice && item.accessScope === 'community';
+    } else if (selectedFilter !== 'all') {
+      matchesFilter = item.courseId === selectedFilter;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+
+    const matchesSearch =
+      item.title?.toLowerCase().includes(query) ||
+      item.content?.toLowerCase().includes(query) ||
+      item.courseCode?.toLowerCase().includes(query) ||
+      item.courseTitle?.toLowerCase().includes(query);
 
     return matchesFilter && matchesSearch;
   });
 
-  // Extract unique filter categories from fetched announcements
-  const enrolledCourseList = Array.from(
-    new Set(
+  // 6. Build course filters
+  const enrolledCourseList: CourseFilter[] = Array.from(
+    new Map(
       announcements
-        .filter(a => a.lecturerId !== 'admin-system' && a.courseId !== 'all')
-        .map(a => JSON.stringify({ id: a.courseId, code: a.courseCode }))
-    )
-  ).map(str => JSON.parse(str));
+        .filter(
+          (item) =>
+            item.lecturerId !== 'admin-system' &&
+            item.courseId !== 'all'
+        )
+        .map((item) => [
+          item.courseId,
+          {
+            id: item.courseId,
+            code: item.courseCode || 'GEN'
+          }
+        ])
+    ).values()
+  );
 
-  const hasSystemBroadcasts = announcements.some(a => a.lecturerId === 'admin-system' || a.courseId === 'all');
+  const isAdminNotice = (item: Announcement) =>
+    item.lecturerId === 'admin-system' || item.courseId === 'all';
+
+  const hasSystemBroadcasts = announcements.some(isAdminNotice);
+
+  const institutionCount = announcements.filter(
+    (item) =>
+      !isAdminNotice(item) &&
+      item.accessScope === 'institutional'
+  ).length;
+
+  const communityCount = announcements.filter(
+    (item) =>
+      !isAdminNotice(item) &&
+      item.accessScope === 'community'
+  ).length;
+
+  const systemCount = announcements.filter(isAdminNotice).length;
+
+  const urgentCount = announcements.filter(
+    (item) => item.priority === 'urgent'
+  ).length;
+
+  const getDate = (date: string) =>
+    new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+  const getTime = (date: string) =>
+    new Date(date).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+  const filterClass = (filter: string, activeColor = 'indigo') => {
+    const activeStyles: Record<string, string> = {
+      indigo: 'bg-[#f1edff] text-[#8064cb] border-[#e5dcff]',
+      sky: 'bg-sky-50 text-sky-600 border-sky-100',
+      purple: 'bg-purple-50 text-purple-600 border-purple-100'
+    };
+
+    return `shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+      selectedFilter === filter
+        ? activeStyles[activeColor]
+        : 'bg-white text-slate-500 border-transparent hover:bg-slate-50'
+    }`;
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-36 bg-gradient-to-b from-indigo-50/40 via-white/80 to-sky-50/20 backdrop-blur-2xl rounded-[2.5rem] border border-indigo-50 shadow-xs">
-        <div className="flex flex-col items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-500 shadow-xs">
-            <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
-          </div>
-          <p className="text-xs text-slate-400 tracking-wide">Syncing updates...</p>
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-[#9276d5]" />
+          <p className="text-xs text-slate-400">
+            Loading announcements...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-3 sm:px-0 text-slate-600">
+    <div className="max-w-5xl mx-auto px-3 sm:px-0 pb-16 space-y-6 text-slate-600 animate-in fade-in duration-300">
 
-      {/* Header Banner */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-indigo-50/70 via-sky-50/40 to-teal-50/30 backdrop-blur-2xl p-7 sm:p-9 rounded-[2.5rem] border border-indigo-100/60 shadow-xs">
-        <div className="absolute right-[-10%] top-[-30%] w-72 h-72 bg-gradient-to-br from-indigo-200/30 to-sky-200/20 rounded-full blur-3xl pointer-events-none" />
+      <AdminHeader
+        title="Announcements"
+        description="Stay updated with announcements from your lecturers and the wider community."
+        icon={<Megaphone size={20} />}
+        badgeText="Student Portal"
+      />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 border border-indigo-100/80 text-xs text-indigo-600 shadow-2xs">
-              <Megaphone size={13} className="text-indigo-500" />
-              <span>Campus Broadcast</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl tracking-tight text-slate-800">
-              Course Announcements
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-lg leading-relaxed">
-              Stay synchronized with real-time updates, schedule adjustments, and notes posted directly by your lecturers and administration.
-            </p>
-          </div>
+      {/* Search and urgent notice */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1">
+          <Search
+            size={15}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+          />
 
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 sm:w-64">
-              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search announcements..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white/80 border border-indigo-100/60 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-100/60 focus:border-indigo-300 transition-all shadow-2xs"
-              />
-            </div>
-          </div>
+          <input
+            type="text"
+            placeholder="Search announcements..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-10 py-3 rounded-xl bg-white border border-slate-100 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-[#d8cbff] focus:ring-2 focus:ring-[#f1edff] transition-all"
+          />
+
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
+
+        {urgentCount > 0 && (
+          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-rose-100 bg-gradient-to-r from-rose-50 to-orange-50 text-rose-600">
+            <AlertCircle size={14} />
+            <span className="text-xs font-medium">
+              {urgentCount} urgent {urgentCount === 1 ? 'notice' : 'notices'}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Filter Tabs & Quick Indicators */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-xl p-3.5 rounded-[2rem] border border-slate-100/80 shadow-2xs">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+      {/* Filters */}
+      <div className="bg-white border border-slate-100 rounded-xl p-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+
           <button
             onClick={() => setSelectedFilter('all')}
-            className={`px-4 py-2.5 rounded-2xl text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 shadow-2xs ${
-              selectedFilter === 'all'
-                ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/60 shadow-xs'
-                : 'bg-slate-50/80 text-slate-500 border border-slate-100 hover:bg-indigo-50/40 hover:text-indigo-600'
-            }`}
+            className={filterClass('all')}
           >
-            <Layers size={13} className={selectedFilter === 'all' ? 'text-indigo-600' : 'text-slate-400'} />
-            <span>All Updates ({announcements.length})</span>
+            <Layers size={13} />
+            All Updates
+            <span className="text-[10px] opacity-60">
+              {announcements.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedFilter('institution')}
+            className={filterClass('institution')}
+          >
+            <Building2 size={13} />
+            Institution
+            <span className="text-[10px] opacity-60">
+              {institutionCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedFilter('community')}
+            className={filterClass('community', 'sky')}
+          >
+            <Globe2 size={13} />
+            Community
+            <span className="text-[10px] opacity-60">
+              {communityCount}
+            </span>
           </button>
 
           {hasSystemBroadcasts && (
             <button
               onClick={() => setSelectedFilter('system')}
-              className={`px-4 py-2.5 rounded-2xl text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 shadow-2xs ${
-                selectedFilter === 'system'
-                  ? 'bg-purple-100/80 text-purple-700 border border-purple-200/60 shadow-xs'
-                  : 'bg-slate-50/80 text-slate-500 border border-slate-100 hover:bg-purple-50/40 hover:text-purple-600'
-              }`}
+              className={filterClass('system', 'purple')}
             >
-              <ShieldAlert size={13} className={selectedFilter === 'system' ? 'text-purple-600' : 'text-slate-400'} />
-              <span>Admin / System</span>
+              <ShieldAlert size={13} />
+              System
+              <span className="text-[10px] opacity-60">
+                {systemCount}
+              </span>
             </button>
           )}
 
@@ -222,105 +396,210 @@ const StudentAnnouncement = () => {
             <button
               key={course.id}
               onClick={() => setSelectedFilter(course.id)}
-              className={`px-4 py-2.5 rounded-2xl text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 shadow-2xs ${
-                selectedFilter === course.id
-                  ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/60 shadow-xs'
-                  : 'bg-slate-50/80 text-slate-500 border border-slate-100 hover:bg-indigo-50/40 hover:text-indigo-600'
-              }`}
+              className={filterClass(course.id)}
             >
-              <BookOpen size={13} className={selectedFilter === course.id ? 'text-indigo-600' : 'text-slate-400'} />
-              <span>{course.code}</span>
+              <BookOpen size={13} />
+              {course.code}
             </button>
           ))}
         </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-400 px-3 py-1 bg-indigo-50/40 rounded-xl border border-indigo-50">
-          <Info size={13} className="text-indigo-400 shrink-0" />
-          <span>Showing available broadcasts</span>
-        </div>
       </div>
 
-      {/* Announcements List */}
-      <div className="space-y-4">
+      {/* Information */}
+      <div className="flex items-center gap-2 px-1 text-[11px] text-slate-400">
+        <Info size={13} className="text-[#9276d5] shrink-0" />
+        <span>
+          Course announcements are available only to students enrolled in the course.
+        </span>
+      </div>
+
+      {/* Error state */}
+      {error && (
+        <div className="flex items-center justify-between gap-3 p-4 rounded-xl border border-rose-100 bg-rose-50/70">
+          <div className="flex items-center gap-2 text-rose-600 text-xs">
+            <AlertCircle size={15} />
+            {error}
+          </div>
+
+          <button
+            onClick={fetchAnnouncements}
+            className="text-xs font-medium text-rose-600 hover:text-rose-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Announcements */}
+      <div className="space-y-3">
         {filteredAnnouncements.length > 0 ? (
           filteredAnnouncements.map((item) => {
-            const isAdminNotice = item.lecturerId === 'admin-system' || item.courseId === 'all';
-            
+            const adminNotice = isAdminNotice(item);
+            const isCommunity =
+              !adminNotice && item.accessScope === 'community';
+
+            const isUrgent = item.priority === 'urgent';
+            const isHigh = item.priority === 'high';
+            const isPinned = item.priority === 'pinned';
+
             return (
-              <div 
+              <article
                 key={item.$id}
-                className={`p-6 sm:p-7 rounded-[2rem] bg-white/90 backdrop-blur-xl border shadow-2xs space-y-4 hover:shadow-md transition-all group relative overflow-hidden ${
-                  isAdminNotice ? 'border-purple-200/80 bg-gradient-to-br from-purple-50/20 via-white to-white' : 'border-slate-100/90 hover:border-indigo-200/80'
+                className={`relative overflow-hidden bg-white border rounded-xl p-4 sm:p-5 transition-all duration-200 ${
+                  isUrgent
+                    ? 'border-rose-200 bg-gradient-to-br from-rose-50/70 via-white to-orange-50/50'
+                    : isHigh
+                    ? 'border-rose-100 bg-gradient-to-br from-rose-50/40 via-white to-orange-50/30'
+                    : 'border-slate-100 hover:border-[#e5dcff]'
                 }`}
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-50/30 via-transparent to-transparent rounded-bl-full pointer-events-none" />
+                {/* Priority indicator */}
+                {(isUrgent || isHigh) && (
+                  <div
+                    className={`absolute left-0 top-0 bottom-0 w-[3px] ${
+                      isUrgent
+                        ? 'bg-gradient-to-b from-rose-400 to-orange-300'
+                        : 'bg-gradient-to-b from-rose-300 to-orange-200'
+                    }`}
+                  />
+                )}
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100/80">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    {isAdminNotice ? (
-                      <span className="px-3 py-1 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-700 flex items-center gap-1.5 shadow-2xs font-semibold">
-                        <ShieldAlert size={12} className="text-purple-600" />
+                {/* Top row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100/80">
+                  <div className="flex items-center gap-2 flex-wrap">
+
+                    {adminNotice ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-600 text-[11px] font-medium border border-purple-100">
+                        <ShieldAlert size={12} />
                         Admin Notice
                       </span>
                     ) : (
-                      <span className="px-3 py-1 rounded-xl bg-indigo-50/80 border border-indigo-100/80 text-xs text-indigo-600 flex items-center gap-1.5 shadow-2xs">
-                        <BookOpen size={12} className="text-indigo-500" />
-                        {item.courseCode}
-                      </span>
+                      <>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f1edff] text-[#8064cb] text-[11px] font-medium border border-[#e8e0ff]">
+                          <BookOpen size={12} />
+                          {item.courseCode}
+                        </span>
+
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border ${
+                            isCommunity
+                              ? 'bg-sky-50 text-sky-600 border-sky-100'
+                              : 'bg-slate-50 text-slate-500 border-slate-100'
+                          }`}
+                        >
+                          {isCommunity ? (
+                            <Globe2 size={12} />
+                          ) : (
+                            <Building2 size={12} />
+                          )}
+                          {isCommunity ? 'Community' : 'Institution'}
+                        </span>
+                      </>
                     )}
-                    <span className="text-xs text-slate-400">{item.courseTitle}</span>
+
+                    <span className="text-[11px] text-slate-400">
+                      {item.courseTitle}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <div className="flex items-center gap-1.5 bg-slate-50/80 px-3 py-1 rounded-xl border border-slate-100 shadow-2xs">
-                      <Calendar size={13} className="text-slate-400" />
-                      <span>{new Date(item.$createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 bg-slate-50/80 px-3 py-1 rounded-xl border border-slate-100 shadow-2xs">
-                      <Clock size={13} className="text-slate-400" />
-                      <span>{new Date(item.$createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar size={12} />
+                      {getDate(item.$createdAt)}
+                    </span>
+
+                    <span className="flex items-center gap-1.5">
+                      <Clock size={12} />
+                      {getTime(item.$createdAt)}
+                    </span>
                   </div>
                 </div>
 
-                <div className="space-y-2.5">
-                  <h2 className="text-base sm:text-lg text-slate-800 group-hover:text-indigo-600 transition-colors leading-snug">
-                    {item.title}
-                  </h2>
+                {/* Content */}
+                <div className="py-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-sm sm:text-[15px] font-semibold text-slate-800 leading-snug">
+                      {item.title}
+                    </h2>
 
-                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed whitespace-pre-wrap bg-gradient-to-br from-slate-50/70 to-indigo-50/20 p-5 rounded-2xl border border-slate-100/80">
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isUrgent && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-rose-100 to-orange-100 border border-rose-200/80 text-[10px] font-semibold text-rose-600">
+                          <AlertCircle size={11} />
+                          Urgent
+                        </span>
+                      )}
+
+                      {!isUrgent && isHigh && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-rose-50 to-orange-50 border border-rose-100 text-[10px] font-semibold text-rose-500">
+                          <AlertCircle size={11} />
+                          High priority
+                        </span>
+                      )}
+
+                      {isPinned && (
+                        <Pin
+                          size={14}
+                          className="text-[#9276d5]"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed whitespace-pre-wrap break-words">
                     {item.content}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
-                  <span className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50/80 px-2.5 py-1 rounded-lg border border-emerald-100/60 shadow-2xs">
+                {/* Footer */}
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100/80">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600">
                     <CheckCheck size={13} />
                     Verified Notice
                   </span>
-                  <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-2xs ${
-                    isAdminNotice ? 'text-purple-600 bg-purple-50/60 border-purple-100' : 'text-indigo-500 bg-indigo-50/60 border-indigo-100/60'
-                  }`}>
-                    <Pin size={12} />
-                    {isAdminNotice ? 'System Broadcast' : 'Official Announcement'}
+
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+                    {adminNotice ? (
+                      <ShieldAlert size={12} />
+                    ) : (
+                      <Pin size={12} />
+                    )}
+                    {adminNotice
+                      ? 'System Broadcast'
+                      : 'Official Announcement'}
                   </span>
                 </div>
-              </div>
+              </article>
             );
           })
         ) : (
-          <div className="text-center py-20 bg-white/90 backdrop-blur-xl rounded-[2.5rem] border border-slate-100 space-y-3.5 shadow-2xs">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50/80 text-indigo-500 flex items-center justify-center mx-auto border border-indigo-100 shadow-2xs">
-              <BellRing size={20} />
+          <div className="bg-white border border-slate-100 rounded-xl py-16 px-5 text-center">
+            <div className="w-10 h-10 mx-auto rounded-xl bg-[#f7f4ff] border border-[#eee8ff] flex items-center justify-center text-[#9276d5] mb-3">
+              <BellRing size={17} />
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-slate-700">No Announcements Found</p>
-              <p className="text-[11px] text-slate-400">There are currently no instructor updates or system notices matching your criteria.</p>
-            </div>
+
+            <h3 className="text-sm font-semibold text-slate-700">
+              No announcements found
+            </h3>
+
+            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
+              There are currently no announcements matching your selected filter or search.
+            </p>
+
+            {(selectedFilter !== 'all' || searchQuery) && (
+              <button
+                onClick={() => {
+                  setSelectedFilter('all');
+                  setSearchQuery('');
+                }}
+                className="mt-4 text-xs font-medium text-[#8064cb] hover:text-[#6e52b8]"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         )}
       </div>
-
     </div>
   );
 };

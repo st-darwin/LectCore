@@ -35,7 +35,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   const isExternal = ctaUrl?.startsWith('http') || ctaUrl?.startsWith('mailto:');
 
   return (
-    <header className="relative md:mt-4  flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 mb-8 border-b border-slate-200/60">
+    <header className="relative md:mt-5 mt-6  flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 mb-8 border-b border-slate-200/60">
       {/* Background ambient light glow */}
       <div className="absolute -top-10 left-1/4 w-72 h-72 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 

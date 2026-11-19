@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { ClipboardList, Search, Loader2, BookOpen, Calendar, Award, FileText, MoreVertical, Trash2, X } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import type { MouseEvent } from 'react';
+import { ClipboardList, Search, Loader2, BookOpen, Calendar, Award, FileText, MoreVertical, Trash2, X, Building, Globe } from 'lucide-react';
 import AdminHeader from '../../Components/AdminHeader';
 import { account, databases, appwriteConfig } from '../../appwrite/Client';
 import { Query } from 'appwrite';
@@ -7,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 interface Assignment {
   $id: string;
+  $createdAt: string;
   courseId: string;
   lecturerId: string;
   title: string;
@@ -19,16 +21,18 @@ interface Course {
   $id: string;
   courseCode: string;
   courseTitle: string;
+  accessScope?: string;
 }
+
+type ScopeTab = 'institutional' | 'community';
 
 const AssignmentView = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [activeScopeTab, setActiveScopeTab] = useState<ScopeTab>('institutional');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
-  
-  // Action Menu Dropdown state & Feedback states
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
@@ -46,7 +50,7 @@ const AssignmentView = () => {
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
-   
+
   const fetchAssignmentsData = async () => {
     try {
       setLoading(true);
@@ -54,42 +58,61 @@ const AssignmentView = () => {
       if (!user) return;
 
       // 1. Fetch courses created by this lecturer
-      const coursesRes = await databases.listDocuments(
+      const coursesRes1 = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.courseId,
         [Query.equal('lecturerId', user.$id)]
       );
 
-      const fetchedCourses = coursesRes.documents as unknown as Course[];
+      let fetchedCourses = coursesRes1.documents as unknown as Course[];
+
+      if (fetchedCourses.length === 0) {
+        const coursesRes2 = await databases.listDocuments(
+          appwriteConfig.databaseId,
+          appwriteConfig.courseId,
+          [Query.equal('instructorId', user.$id)]
+        );
+        fetchedCourses = coursesRes2.documents as unknown as Course[];
+      }
+
       setCourses(fetchedCourses);
 
       const courseIds = fetchedCourses.map((c) => c.$id);
 
       if (courseIds.length === 0) {
         setAssignments([]);
-        setLoading(false);
         return;
       }
 
-      // 2. Fetch all assignments for these courses using courseId filter
+      // 2. Fetch assignments for these courses
       const assignmentsRes = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.assignmentId || 'assignments',
         [Query.equal('courseId', courseIds)]
       );
 
-      setAssignments(assignmentsRes.documents as unknown as Assignment[]);
+      // 3. Sort assignments by creation date (newest first)
+      const sortedAssignments = (
+        assignmentsRes.documents as unknown as Assignment[]
+      ).sort((a, b) => {
+        const dateA = new Date(a.$createdAt).getTime();
+        const dateB = new Date(b.$createdAt).getTime();
+        return dateB - dateA;
+      });
+
+      setAssignments(sortedAssignments);
     } catch (err) {
-      console.error("Failed to fetch assignments:", err);
-      setError("Failed to load assignments from database.");
+      console.error('Failed to fetch assignments:', err);
+      setError('Failed to load assignments from database.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: MouseEvent) => {
     e.stopPropagation();
     setActiveMenuId(null);
+
     if (!window.confirm('Are you sure you want to delete this assignment? All associated student submissions will also be deleted.')) return;
 
     try {
@@ -110,6 +133,7 @@ const AssignmentView = () => {
           sub.$id
         )
       );
+
       await Promise.all(deletionPromises);
 
       // 3. Delete the assignment document itself
@@ -131,21 +155,57 @@ const AssignmentView = () => {
     }
   };
 
-  // Filter assignments based on selected course and search query
-  const filteredAssignments = assignments.filter((assignment) => {
-    if (selectedCourseId !== 'all' && assignment.courseId !== selectedCourseId) {
-      return false;
+  // Separate courses based on active scope tab
+  const tabCourses = useMemo(() => {
+    if (activeScopeTab === 'institutional') {
+      return courses.filter((c) => c.accessScope?.toLowerCase() !== 'community');
     }
+    return courses.filter((c) => c.accessScope?.toLowerCase() === 'community');
+  }, [courses, activeScopeTab]);
 
-    if (searchTerm.trim() !== '') {
-      const term = searchTerm.toLowerCase();
-      const matchesTitle = assignment.title?.toLowerCase().includes(term);
-      const matchesDesc = assignment.description?.toLowerCase().includes(term);
-      if (!matchesTitle && !matchesDesc) return false;
-    }
+  // Filter assignments based on scope, course, and search
+  const filteredAssignments = useMemo(() => {
+    const tabCourseIds = new Set(tabCourses.map((c) => c.$id));
+    const term = searchTerm.trim().toLowerCase();
 
-    return true;
-  });
+    return assignments.filter((assignment) => {
+      // 1. Scope filter
+      if (!tabCourseIds.has(assignment.courseId)) return false;
+
+      // 2. Course filter
+      if (selectedCourseId !== 'all' && assignment.courseId !== selectedCourseId) {
+        return false;
+      }
+
+      // 3. Search filter
+      if (term) {
+        const matchesTitle = assignment.title?.toLowerCase().includes(term);
+        const matchesDesc = assignment.description?.toLowerCase().includes(term);
+        if (!matchesTitle && !matchesDesc) return false;
+      }
+
+      return true;
+    });
+  }, [assignments, tabCourses, selectedCourseId, searchTerm]);
+
+  // Institutional vs Community counts
+  const institutionalCount = useMemo(() => {
+    const instCourseIds = new Set(
+      courses
+        .filter((c) => c.accessScope?.toLowerCase() !== 'community')
+        .map((c) => c.$id)
+    );
+    return assignments.filter((a) => instCourseIds.has(a.courseId)).length;
+  }, [assignments, courses]);
+
+  const communityCount = useMemo(() => {
+    const commCourseIds = new Set(
+      courses
+        .filter((c) => c.accessScope?.toLowerCase() === 'community')
+        .map((c) => c.$id)
+    );
+    return assignments.filter((a) => commCourseIds.has(a.courseId)).length;
+  }, [assignments, courses]);
 
   const getCourseDetails = (courseId: string) => {
     return courses.find((c) => c.$id === courseId);
@@ -155,7 +215,7 @@ const AssignmentView = () => {
     <div className="space-y-6 pb-16 animate-in fade-in duration-300">
       <AdminHeader
         title="Assignments"
-        description="Create, manage, and track assignments posted across your courses."
+        description="Create, manage, and track assignments posted across your institutional and community courses."
         ctaText="Create Assignment"
         ctaUrl="/lecturer/assignments/create"
         icon={<ClipboardList size={20} />}
@@ -163,17 +223,71 @@ const AssignmentView = () => {
 
       {/* Feedback Alerts */}
       {successMessage && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800 flex items-center justify-between shadow-sm">
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800 flex items-center justify-between shadow-xs">
           <span>{successMessage}</span>
-          <button onClick={() => setSuccessMessage('')}><X size={14} /></button>
+          <button onClick={() => setSuccessMessage('')}>
+            <X size={14} />
+          </button>
         </div>
       )}
+
       {error && (
-        <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs font-medium text-red-800 flex items-center justify-between shadow-sm">
+        <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs font-medium text-red-800 flex items-center justify-between shadow-xs">
           <span>{error}</span>
-          <button onClick={() => setError('')}><X size={14} /></button>
+          <button onClick={() => setError('')}>
+            <X size={14} />
+          </button>
         </div>
       )}
+
+      {/* Institutional vs Community Scope Tabs */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveScopeTab('institutional');
+            setSelectedCourseId('all');
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeScopeTab === 'institutional'
+              ? 'bg-white text-indigo-600 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+          }`}
+        >
+          <Building size={14} />
+          <span>My Institution</span>
+          <span className={`px-2 py-0.5 rounded-lg text-[10px] ${
+            activeScopeTab === 'institutional'
+              ? 'bg-indigo-50 text-indigo-600'
+              : 'bg-slate-200/70 text-slate-500'
+          }`}>
+            {institutionalCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveScopeTab('community');
+            setSelectedCourseId('all');
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeScopeTab === 'community'
+              ? 'bg-white text-indigo-600 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+          }`}
+        >
+          <Globe size={14} />
+          <span>Community</span>
+          <span className={`px-2 py-0.5 rounded-lg text-[10px] ${
+            activeScopeTab === 'community'
+              ? 'bg-indigo-50 text-indigo-600'
+              : 'bg-slate-200/70 text-slate-500'
+          }`}>
+            {communityCount}
+          </span>
+        </button>
+      </div>
 
       {/* Filter Tabs Section */}
       <div className="space-y-4 bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-slate-200/70 shadow-xs">
@@ -181,17 +295,21 @@ const AssignmentView = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               <BookOpen size={13} className="text-indigo-500" />
-              <span>Filter by Course</span>
+              <span>
+                Filter by Course ({activeScopeTab === 'institutional' ? 'Institutional' : 'Community'})
+              </span>
             </div>
+
             {selectedCourseId !== 'all' && (
-              <button 
-                onClick={() => setSelectedCourseId('all')} 
+              <button
+                onClick={() => setSelectedCourseId('all')}
                 className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
               >
                 Reset
               </button>
             )}
           </div>
+
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             <button
               onClick={() => setSelectedCourseId('all')}
@@ -201,14 +319,12 @@ const AssignmentView = () => {
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
               }`}
             >
-              <span>All Courses</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${
-                selectedCourseId === 'all' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200/70 text-slate-500'
-              }`}>
-                {assignments.length}
+              <span>
+                All {activeScopeTab === 'institutional' ? 'Institutional' : 'Community'} Courses
               </span>
             </button>
-            {courses.map((course) => {
+
+            {tabCourses.map((course) => {
               const count = assignments.filter((a) => a.courseId === course.$id).length;
               const isSelected = selectedCourseId === course.$id;
 
@@ -224,7 +340,9 @@ const AssignmentView = () => {
                 >
                   <span className="font-bold">{course.courseCode}</span>
                   <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${
-                    isSelected ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200/70 text-slate-500'
+                    isSelected
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'bg-slate-200/70 text-slate-500'
                   }`}>
                     {count}
                   </span>
@@ -238,7 +356,10 @@ const AssignmentView = () => {
       {/* Search Bar & Counter */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <Search
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+            size={16}
+          />
           <input
             type="text"
             placeholder="Search assignments by title or description..."
@@ -247,6 +368,7 @@ const AssignmentView = () => {
             className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white/75 backdrop-blur-xl border border-slate-200/60 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-xs"
           />
         </div>
+
         <span className="text-xs font-semibold text-slate-500 px-1">
           Showing: {filteredAssignments.length} Assignments
         </span>
@@ -264,8 +386,14 @@ const AssignmentView = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredAssignments.map((assignment) => {
             const course = getCourseDetails(assignment.courseId);
-            const formattedDate = assignment.dueDate 
-              ? new Date(assignment.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            const formattedDate = assignment.dueDate
+              ? new Date(assignment.dueDate).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
               : 'No due date';
             const isDeleting = deletingId === assignment.$id;
 
@@ -291,7 +419,9 @@ const AssignmentView = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActiveMenuId(activeMenuId === assignment.$id ? null : assignment.$id);
+                          setActiveMenuId(
+                            activeMenuId === assignment.$id ? null : assignment.$id
+                          );
                         }}
                         className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                       >
@@ -299,7 +429,7 @@ const AssignmentView = () => {
                       </button>
 
                       {activeMenuId === assignment.$id && (
-                        <div 
+                        <div
                           className="absolute right-0 mt-1 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-20 text-xs animate-in fade-in zoom-in-95 duration-150"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -308,7 +438,11 @@ const AssignmentView = () => {
                             disabled={isDeleting}
                             className="w-full px-4 py-2 text-left flex items-center gap-2 text-red-600 hover:bg-red-50 transition-colors cursor-pointer font-medium disabled:opacity-50"
                           >
-                            {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                            {isDeleting ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
                             <span>Delete Assignment</span>
                           </button>
                         </div>
@@ -317,8 +451,12 @@ const AssignmentView = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <h4 className="text-xs font-bold text-slate-900 line-clamp-1">{assignment.title}</h4>
-                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">{assignment.description}</p>
+                    <h4 className="text-xs font-bold text-slate-900 line-clamp-1">
+                      {assignment.title}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                      {assignment.description}
+                    </p>
                   </div>
                 </div>
 
@@ -342,7 +480,9 @@ const AssignmentView = () => {
         <div className="text-center py-16 rounded-[2rem] bg-white/40 border border-dashed border-slate-200/80 space-y-2">
           <FileText size={24} className="mx-auto text-slate-300 mb-1" />
           <p className="text-xs font-semibold text-slate-700">No Assignments Found</p>
-          <p className="text-[11px] text-slate-400 max-w-xs mx-auto">No assignments match your selected course filter or search query.</p>
+          <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+            No assignments match your selected scope tab, course filter, or search query.
+          </p>
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ interface Course {
   $id: string;
   courseCode: string;
   courseTitle: string;
+  accessScope?: string;
 }
 
 const CreateAssignment = () => {
@@ -35,13 +36,23 @@ const CreateAssignment = () => {
       const user = await account.get();
       if (!user) return;
 
-      const coursesRes = await databases.listDocuments(
+      const coursesRes1 = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.courseId,
         [Query.equal('lecturerId', user.$id)]
       );
 
-      const fetchedCourses = coursesRes.documents as unknown as Course[];
+      let fetchedCourses = coursesRes1.documents as unknown as Course[];
+
+      if (fetchedCourses.length === 0) {
+        const coursesRes2 = await databases.listDocuments(
+          appwriteConfig.databaseId,
+          appwriteConfig.courseId,
+          [Query.equal('instructorId', user.$id)]
+        );
+        fetchedCourses = coursesRes2.documents as unknown as Course[];
+      }
+
       setCourses(fetchedCourses);
       if (fetchedCourses.length > 0) {
         setCourseId(fetchedCourses[0].$id);
@@ -54,7 +65,6 @@ const CreateAssignment = () => {
     }
   };
 
-  // Client-side trigger helper to fan out notifications to enrolled students
   const sendCourseNotificationToStudents = async ({
     courseId,
     title,
@@ -69,7 +79,6 @@ const CreateAssignment = () => {
     relatedId?: string;
   }) => {
     try {
-      // 1. Fetch students enrolled in this course
       const enrollments = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.enrollmentsId,
@@ -78,7 +87,6 @@ const CreateAssignment = () => {
 
       if (enrollments.documents.length === 0) return;
 
-      // 2. Create notification records for each student in parallel
       const notificationPromises = enrollments.documents.map((enrollment) => {
         const studentId = enrollment.studentId;
         
@@ -98,7 +106,6 @@ const CreateAssignment = () => {
       });
 
       await Promise.all(notificationPromises);
-      console.log(`Successfully dispatched assignment notifications to ${enrollments.documents.length} students.`);
     } catch (error) {
       console.error("Failed to trigger student notifications:", error);
     }
@@ -117,7 +124,11 @@ const CreateAssignment = () => {
       const user = await account.get();
       if (!user) return;
 
-      // 1. Create the assignment document
+      // Find the selected course to extract its accessScope
+      const selectedCourse = courses.find((c) => c.$id === courseId);
+      const accessScope = selectedCourse?.accessScope?.toLowerCase() || 'institutional';
+
+      // 1. Create the assignment document with accessScope included
       const response = await databases.createDocument(
         appwriteConfig.databaseId,
         appwriteConfig.assignmentId || 'assignments',
@@ -129,6 +140,7 @@ const CreateAssignment = () => {
           description,
           dueDate: new Date(dueDate).toISOString(),
           totalMarks: parseInt(totalMarks, 10),
+          accessScope,
         }
       );
 
@@ -141,7 +153,6 @@ const CreateAssignment = () => {
         relatedId: response.$id,
       });
 
-      // Navigate back or reset
       navigate(-1);
     } catch (err: any) {
       console.error("Failed to create assignment:", err);
@@ -162,7 +173,7 @@ const CreateAssignment = () => {
         </button>
         <Header
           title="Create Assignment"
-          description="Publish a new assignment for your students enrolled in your courses."
+          description="Publish a new assignment for students enrolled in your institutional or community courses."
           icon={<ClipboardList size={20} />}
         />
       </div>
@@ -198,11 +209,14 @@ const CreateAssignment = () => {
                 className="w-full px-4 py-3 rounded-xl bg-slate-50/80 border border-slate-200/70 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-all font-medium"
                 required
               >
-                {courses.map((course) => (
-                  <option key={course.$id} value={course.$id}>
-                    {course.courseCode} - {course.courseTitle}
-                  </option>
-                ))}
+                {courses.map((course) => {
+                  const scopeLabel = course.accessScope?.toLowerCase() === 'community' ? 'Community' : 'Institutional';
+                  return (
+                    <option key={course.$id} value={course.$id}>
+                      [{scopeLabel}] {course.courseCode} - {course.courseTitle}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
