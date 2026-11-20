@@ -50,6 +50,8 @@ import StudentTimetable from "./Sections/Student/StudentTimetable";
 import LecturerTimetable from "./Sections/Lecturer/LecturerTimetable";
 import LecturerCBTManager from "./Sections/Lecturer/LecturerCBTManager";
 import StudentCBT from "./Sections/Student/StudentCBT";
+import ComTutorDashboard from "./Sections/ComTutor/ComTutorDashboard";
+import ComTutorLayout , {Loader as ComTutorLoader} from "./Sections/ComTutor/ComTutorLayout";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -122,6 +124,11 @@ const router = createBrowserRouter(
          <Route path="notes/:courseId" element={<StudyNotes />} />
          <Route path="cbt" element={<StudentCBT />} />
          <Route path="courses/:courseId/discussions" element={<CourseDiscussions />} />
+      </Route>
+
+      <Route  path="/community_tutor" element={<ComTutorLayout />} loader={ComTutorLoader}>
+        <Route index element={<ComTutorDashboard/>} />
+
       </Route>
     </>
   ),

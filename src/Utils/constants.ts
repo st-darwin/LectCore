@@ -169,3 +169,60 @@ export const AdminNavItems = [
     icon: Settings2Icon
   }
 ];
+export const ComTutorNavItems = [
+    {
+    label: 'Dashboard',
+    path: '/community_tutor',
+    icon: LayoutDashboard,
+  },
+  {
+    label: 'Courses',
+    path: '/community_tutor/courses',
+    icon: BookOpen,
+  },
+  {
+    label: 'My Students',
+    path: '/community_tutor/students',
+    icon: Users,
+  },
+    {
+    label: 'CBT Manager',
+    path: '/community_tutor/cbt',
+    icon: FileQuestion,
+  },
+    {
+    label: 'Flashcards',
+    path: '/community_tutor/flashcards',
+    icon: Layers,
+  },
+    {
+    label: 'Timetable',
+    path: '/community_tutor/timetable',
+    icon: Calendar1Icon,
+  },
+    {
+    label: 'Announcements',
+    path: '/community_tutor/announcements',
+    icon: Megaphone,
+  },
+    {
+    label: 'Assignments',
+    path: '/community_tutor/assignments',
+    icon: FileText,
+  },
+  {
+    label: "Chat",
+    path: '/community_tutor/chat',
+    icon: MessagesSquare,
+  },
+  {
+    label: "View Analysis",
+    path: '/community_tutor/analysis',
+    icon: ChartAreaIcon,
+  },
+  {
+    label: "Settings",
+    path: '/community_tutor/settings',
+    icon: Settings2Icon,
+  },
+]
