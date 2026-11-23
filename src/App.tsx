@@ -50,9 +50,11 @@ import StudentTimetable from "./Sections/Student/StudentTimetable";
 import LecturerTimetable from "./Sections/Lecturer/LecturerTimetable";
 import LecturerCBTManager from "./Sections/Lecturer/LecturerCBTManager";
 import StudentCBT from "./Sections/Student/StudentCBT";
-import ComTutorDashboard from "./Sections/ComTutor/ComTutorDashboard";
+import ComTutorDashboard , {Loader as ComTutorDashboardLoader } from "./Sections/ComTutor/ComTutorDashboard";
 import ComTutorLayout , {Loader as ComTutorLoader} from "./Sections/ComTutor/ComTutorLayout";
-
+import ComTutorCourseView from "./Sections/ComTutor/ComTutorCourseView";
+import ComTutorCreateCourse from "./Sections/ComTutor/ComTutorCreateCourse";
+import ComTutorCourseDetail from "./Sections/ComTutor/ComTutorCourseDetail";
 const router = createBrowserRouter(
   createRoutesFromElements(
     <>
@@ -126,8 +128,12 @@ const router = createBrowserRouter(
          <Route path="courses/:courseId/discussions" element={<CourseDiscussions />} />
       </Route>
 
+        {/* Community Tutor Routes */}
       <Route  path="/community_tutor" element={<ComTutorLayout />} loader={ComTutorLoader}>
-        <Route index element={<ComTutorDashboard/>} />
+        <Route index element={<ComTutorDashboard/>} loader={ComTutorDashboardLoader} />
+         <Route path="courses" element={<ComTutorCourseView />} />
+          <Route path="courses/create" element={<ComTutorCreateCourse />} />
+          <Route path="courses/:id" element={<ComTutorCourseDetail />} />
 
       </Route>
     </>

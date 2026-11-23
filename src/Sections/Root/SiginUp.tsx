@@ -43,7 +43,7 @@ export default function Signup() {
         email: formData.email,
         pass: formData.password,
         phone: formData.phone,
-        campusId: isCommunity ? `COMM-${Date.now().toString().slice(-6)}` : formData.campusId,
+        campusId: isCommunity ? formData.phone : formData.campusId,
         university: isCommunity ? 'Global Community' : formData.university,
         role: role,
       });

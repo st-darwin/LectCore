@@ -6,8 +6,8 @@ import { account } from '../appwrite/Client';
 import logo from '../assets/icons/logo.png';
 import { ComTutorNavItems } from '../Utils/constants';
 import { useNotifications } from '../hooks/useNotifications';
-import {NotificationBell} from './NotificationBell';
-import {NotificationDropdown} from './NotificationDropdown';
+import { NotificationBell } from './NotificationBell';
+import { NotificationDropdown } from './NotificationDropdown';
 import { notificationService } from '../services/notificationService';
 import type { Notification } from '../types/notification';
 
@@ -81,7 +81,7 @@ const ComTutorNav = () => {
   return (
     <>
       {/* Mobile Header */}
-      <header className="fixed left-3 right-3 top-3 z-40 flex h-[68px] items-center justify-between rounded-2xl border border-slate-200/70 bg-white/90 px-4 shadow-sm shadow-slate-200/30 backdrop-blur-xl lg:hidden">
+      <header className="fixed left-3 right-3 top-3 z-40 flex h-[68px] items-center justify-between rounded-2xl border border-slate-200/70 bg-white/90 px-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-xl lg:hidden">
         <div className="flex items-center gap-3">
           <img
             src={logo}
@@ -109,7 +109,7 @@ const ComTutorNav = () => {
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 text-slate-600 transition hover:bg-slate-50"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200/80 text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50/50 hover:text-indigo-600"
             aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
@@ -152,7 +152,7 @@ const ComTutorNav = () => {
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             aria-label="Close menu"
           >
             <X size={18} />
@@ -175,10 +175,10 @@ const ComTutorNav = () => {
                 key={item.path}
                 type="button"
                 onClick={() => handleNavigation(item.path)}
-                className={`group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-medium transition-all duration-200 ${
+                className={`group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-medium transition-all duration-200 ${
                   active
-                    ? 'border border-violet-100 bg-violet-50 text-violet-700'
-                    : 'border border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                    ? 'border border-indigo-100 bg-indigo-50/80 font-semibold text-indigo-700 shadow-2xs'
+                    : 'border border-transparent text-slate-500 hover:bg-slate-50/80 hover:text-slate-800'
                 }`}
               >
                 <Icon
@@ -186,7 +186,7 @@ const ComTutorNav = () => {
                   strokeWidth={active ? 2.2 : 1.8}
                   className={
                     active
-                      ? 'text-violet-600'
+                      ? 'text-indigo-600'
                       : 'text-slate-400 transition group-hover:text-slate-600'
                   }
                 />
@@ -194,7 +194,7 @@ const ComTutorNav = () => {
                 <span>{item.label}</span>
 
                 {active && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-violet-500" />
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-600" />
                 )}
               </button>
             );
@@ -205,7 +205,7 @@ const ComTutorNav = () => {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[13px] font-medium text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
+            className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-[13px] font-medium text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
           >
             <LogOut size={18} strokeWidth={1.8} />
             <span>Sign out</span>
@@ -218,7 +218,7 @@ const ComTutorNav = () => {
       </aside>
 
       {/* Desktop Sidebar */}
-      <aside className="fixed bottom-4 left-4 top-4 z-40 hidden w-72 flex-col rounded-2xl border border-slate-200/70 bg-white px-5 py-6 shadow-sm shadow-slate-200/30 lg:flex">
+      <aside className="fixed bottom-4 left-4 top-4 z-40 hidden w-72 flex-col rounded-3xl border border-slate-200/70 bg-white/95 px-5 py-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-xl lg:flex">
         <div className="mb-9 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
@@ -260,10 +260,10 @@ const ComTutorNav = () => {
                 key={item.path}
                 type="button"
                 onClick={() => handleNavigation(item.path)}
-                className={`group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-medium transition-all duration-200 ${
+                className={`group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-medium transition-all duration-200 ${
                   active
-                    ? 'border border-violet-100 bg-violet-50 text-violet-700'
-                    : 'border border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                    ? 'border border-indigo-100 bg-indigo-50/80 font-semibold text-indigo-700 shadow-2xs'
+                    : 'border border-transparent text-slate-500 hover:bg-slate-50/80 hover:text-slate-800'
                 }`}
               >
                 <Icon
@@ -271,7 +271,7 @@ const ComTutorNav = () => {
                   strokeWidth={active ? 2.2 : 1.8}
                   className={
                     active
-                      ? 'text-violet-600'
+                      ? 'text-indigo-600'
                       : 'text-slate-400 transition group-hover:text-slate-600'
                   }
                 />
@@ -279,7 +279,7 @@ const ComTutorNav = () => {
                 <span>{item.label}</span>
 
                 {active && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-violet-500" />
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-600" />
                 )}
               </button>
             );
@@ -290,7 +290,7 @@ const ComTutorNav = () => {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[13px] font-medium text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
+            className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-[13px] font-medium text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
           >
             <LogOut size={18} strokeWidth={1.8} />
             <span>Sign out</span>
